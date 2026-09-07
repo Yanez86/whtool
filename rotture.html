@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report Rotture / Lost &amp; Found</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#15181d; --muted:#6b7280;
+    --line:#e3e6ea; --accent:#1f6feb; --accent-soft:#e8f0fe;
+    --ok:#0f7b45; --ok-soft:#e6f4ec;
+    --warn:#8a5a00; --warn-soft:#fff5e0;
+    --err:#b42318; --err-soft:#fdeceb;
+    --head:#f7f8fa; --zebra:#fbfcfd;
+    --radius:10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1216; --panel:#171b21; --ink:#e8eaed; --muted:#9aa3af;
+      --line:#282e37; --accent:#4c8dff; --accent-soft:#1b2740;
+      --ok:#4ade80; --ok-soft:#14301f;
+      --warn:#fbbf24; --warn-soft:#33260c;
+      --err:#fca5a5; --err-soft:#3a1614;
+      --head:#1d222a; --zebra:#1b2028;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;}
+
+  /* barra di navigazione */
+  .topbar{background:var(--panel);border-bottom:1px solid var(--line)}
+  .topbar .inner{max-width:1180px;margin:0 auto;padding:0 20px;display:flex;align-items:center;
+    gap:18px;height:52px;flex-wrap:wrap}
+  .brand{font-weight:700;letter-spacing:-.01em;color:var(--ink);text-decoration:none;white-space:nowrap}
+  .brand span{color:var(--muted);font-weight:400}
+  .navlinks{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+  .navlinks a{color:var(--muted);text-decoration:none;padding:6px 12px;border-radius:8px;white-space:nowrap}
+  .navlinks a:hover{background:var(--accent-soft);color:var(--ink)}
+  .navlinks a.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 64px}
+  header h1{margin:0 0 4px;font-size:22px;letter-spacing:-.01em}
+  header p{margin:0 0 4px;color:var(--muted);max-width:78ch}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px;margin-top:20px}
+  .panel h2{margin:0 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+
+  /* dropzone */
+  #drop{border:2px dashed var(--line);border-radius:var(--radius);background:var(--panel);
+    padding:40px 20px;text-align:center;cursor:pointer;transition:.15s;margin-top:20px}
+  #drop:hover,#drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  #drop strong,#drop .big{display:block;font-size:15px;font-weight:600;margin-bottom:4px}
+  #drop span,#drop .small{color:var(--muted);font-size:13px}
+  input[type=file]{display:none}
+
+  /* pulsanti */
+  button{font:inherit;border-radius:8px;border:1px solid var(--line);background:var(--panel);
+    color:var(--ink);padding:8px 14px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.primary:hover{filter:brightness(1.08)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  button:disabled:hover{border-color:var(--line)}
+  .btns,.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+
+  /* liste campi con checkbox */
+  .row{display:flex;gap:16px;flex-wrap:wrap}
+  .col{flex:1 1 320px;min-width:280px}
+  .fieldlist{border:1px solid var(--line);border-radius:8px;max-height:300px;overflow:auto;background:var(--bg)}
+  .fieldlist label{display:flex;align-items:center;gap:8px;padding:6px 10px;
+    border-bottom:1px solid var(--line);cursor:pointer}
+  .fieldlist label:last-child{border-bottom:none}
+  .fieldlist label:hover{background:var(--accent-soft)}
+  .fieldlist input{margin:0;flex:none}
+  .fieldlist .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fieldlist .tag{margin-left:auto;font-size:11px;color:var(--muted);flex:none}
+  .search{width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:8px;
+    background:var(--panel);color:var(--ink);margin-bottom:8px}
+  select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel);color:var(--ink)}
+
+  /* riquadri file (report rotture) */
+  .slots{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+  @media(max-width:680px){.slots{grid-template-columns:1fr}}
+  .slot{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);padding:12px 14px}
+  .slot .lab{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .slot .fname{margin-top:4px;font-weight:600;word-break:break-all}
+  .slot .meta{color:var(--muted);font-size:12px;margin-top:2px}
+  .slot.empty .fname{color:var(--muted);font-weight:400}
+
+  /* riquadri numerici */
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:680px){.cards{grid-template-columns:repeat(2,1fr)}}
+  .card{border:1px solid var(--line);border-radius:var(--radius);padding:14px;background:var(--bg)}
+  .card .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .card .v{font-size:22px;font-weight:650;margin-top:4px;font-variant-numeric:tabular-nums}
+
+  /* etichette e messaggi */
+  .pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px;
+    background:var(--ok-soft);color:var(--ok)}
+  .meta,.hint{color:var(--muted);font-size:13px}
+  .hint{margin-top:10px;font-size:12px}
+  .msg{border-radius:8px;padding:10px 14px;margin-top:12px;font-size:13px;border:1px solid transparent}
+  .msg.err,.err{background:var(--err-soft);color:var(--err);border-color:var(--err)}
+  .msg.warn{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
+
+  /* tabelle */
+  .tablewrap{margin-top:16px;border:1px solid var(--line);border-radius:var(--radius);
+    overflow:auto;max-height:65vh;background:var(--panel)}
+  table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+  th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{position:sticky;top:0;background:var(--head);z-index:1;font-size:11px;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--muted);font-weight:700}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  td.desc{white-space:normal;min-width:240px}
+  tbody tr:nth-child(even){background:var(--zebra)}
+  tfoot td{position:sticky;bottom:0;background:var(--head);font-weight:700;
+    border-top:2px solid var(--line);border-bottom:none}
+
+  .hidden{display:none}
+</style>
+</head>
+<body>
+  <div class="topbar"><div class="inner">
+    <a class="brand" href="index.html">Tool Magazzino</a>
+    <nav class="navlinks">
+      <a href="giacenze.html">Aggregatore giacenze</a>
+      <a href="rotture.html" class="active">Report rotture / L&amp;F</a>
+    </nav>
+  </div></div>
+
+  <div class="wrap">
+
+  <header>
+    <h1>Report Rotture / Lost &amp; Found</h1>
+    <p>Trascina i due file Excel: la giacenza UdC delle rotture e i saldi Lost &amp; Found. L'elaborazione avviene interamente nel tuo browser, nessun file viene caricato online.</p>
+  </header>
+
+  <div id="drop">
+    <div class="big">Trascina qui i due file Excel</div>
+    <div class="small">oppure clicca per selezionarli &middot; formati .xlsx e .xls</div>
+  </div>
+  <input type="file" id="fileInput" multiple accept=".xlsx,.xls,.xlsm">
+
+  <div class="slots">
+    <div class="slot empty" id="slotRot">
+      <div class="lab">Rotture &middot; Giacenza UdC</div>
+      <div class="fname">nessun file</div>
+      <div class="meta"></div>
+    </div>
+    <div class="slot empty" id="slotLf">
+      <div class="lab">Lost &amp; Found</div>
+      <div class="fname">nessun file</div>
+      <div class="meta"></div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button id="btnSwap" disabled>Inverti i due file</button>
+    <button id="btnReset" disabled>Ricomincia</button>
+    <button id="btnExport" class="primary hidden">Scarica Excel</button>
+  </div>
+
+  <div id="messages"></div>
+
+  <section id="results" class="hidden">
+    <div class="panel">
+      <div class="cards">
+        <div class="card"><div class="k">Articoli</div><div class="v" id="cArt">0</div></div>
+        <div class="card"><div class="k">Rotture</div><div class="v" id="cRot">0</div></div>
+        <div class="card"><div class="k">Found</div><div class="v" id="cFound">0</div></div>
+        <div class="card"><div class="k">Delta</div><div class="v" id="cDelta">0</div></div>
+      </div>
+      <div class="tablewrap">
+        <table id="report">
+          <thead>
+            <tr>
+              <th>Articolo</th>
+              <th>Descrizione articolo</th>
+              <th class="num">Rotture</th>
+              <th class="num">Found</th>
+              <th class="num">Delta</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot>
+            <tr>
+              <td>TOTALE</td>
+              <td></td>
+              <td class="num" id="tRot"></td>
+              <td class="num" id="tFound"></td>
+              <td class="num" id="tDelta"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="hint" id="detail"></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- utility ---------- */
+
+  // minuscolo, senza accenti, spazi normalizzati: per confrontare le intestazioni
+  function norm(v){
+    return String(v == null ? "" : v)
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  }
+
+  // numero robusto: accetta 1234.5, "1.234,5", "1234,5", vuoto = 0
+  function toNum(v){
+    if (v == null || v === "") return 0;
+    if (typeof v === "number") return isFinite(v) ? v : 0;
+    var s = String(v).trim().replace(/\s/g, "");
+    if (s === "") return 0;
+    if (s.indexOf(",") > -1) s = s.replace(/\./g, "").replace(",", ".");
+    var n = parseFloat(s);
+    return isFinite(n) ? n : 0;
+  }
+
+  // codice articolo come testo pulito (evita 1.75e+6 sui codici letti come numeri)
+  function toCode(v){
+    if (v == null) return "";
+    if (typeof v === "number") return String(Math.round(v * 1e10) / 1e10);
+    return String(v).trim();
+  }
+
+  var fmt = new Intl.NumberFormat("it-IT", {minimumFractionDigits:0, maximumFractionDigits:2});
+  function fnum(n){ return fmt.format(Math.round(n * 100) / 100); }
+
+  function el(id){ return document.getElementById(id); }
+
+  function showMessage(text, kind){
+    var d = document.createElement("div");
+    d.className = "msg " + (kind || "warn");
+    d.textContent = text;
+    el("messages").appendChild(d);
+  }
+  function clearMessages(){ el("messages").innerHTML = ""; }
+
+  /* ---------- lettura del foglio ---------- */
+
+  var HDR_QTA   = ["quantita stoccata"];
+  var HDR_ART   = ["articolo"];
+  var HDR_DESC  = ["descrizione articolo"];
+
+  // Indizi per capire quale file e' quale
+  var SIG_ROT = ["sscc corrente","codice udc","stato giacenza","causale blocco","descrizione articolo","tipo udc"];
+  var SIG_LF  = ["peso netto","peso lordo","pezzi"];
+
+  // Posizioni di ripiego (0-based) se le intestazioni non vengono trovate
+  var FALLBACK = {
+    rotture: { headerRow: 3, art: 22, desc: 23, qta: 28 },   // riga 4; colonne W, X, AC
+    lf:      { headerRow: 3, art: 2,  desc: -1, qta: 3  }    // riga 4; colonne C, D
+  };
+
+  function readWorkbook(arrayBuffer){
+    var wb = XLSX.read(new Uint8Array(arrayBuffer), {type:"array"});
+    var ws = wb.Sheets[wb.SheetNames[0]];
+    // header:1 -> array di array; defval null per non perdere le colonne vuote
+    return XLSX.utils.sheet_to_json(ws, {header:1, defval:null, blankrows:true, raw:true});
+  }
+
+  // cerca nelle prime righe quella che contiene "Quantita Stoccata" (o in subordine "Articolo")
+  function findHeaderRow(rows){
+    var limit = Math.min(rows.length, 25), fallbackIdx = -1, i, j, cells, c;
+    for (i = 0; i < limit; i++){
+      cells = rows[i] || [];
+      for (j = 0; j < cells.length; j++){
+        c = norm(cells[j]);
+        if (HDR_QTA.indexOf(c) > -1) return i;
+        if (HDR_ART.indexOf(c) > -1 && fallbackIdx < 0) fallbackIdx = i;
+      }
+    }
+    return fallbackIdx;
+  }
+
+  function scoreKind(header){
+    var set = {}, i, s = {rot:0, lf:0};
+    for (i = 0; i < header.length; i++) set[norm(header[i])] = true;
+    for (i = 0; i < SIG_ROT.length; i++) if (set[SIG_ROT[i]]) s.rot++;
+    for (i = 0; i < SIG_LF.length;  i++) if (set[SIG_LF[i]])  s.lf++;
+    if (header.length > 50) s.rot += 2;
+    if (header.length <= 15) s.lf += 1;
+    return s;
+  }
+
+  // indice esatto dell'ultima colonna "Articolo" che precede la colonna quantita:
+  // nella giacenza distingue "Articolo" da "Codice Articolo",
+  // nel lost & found sceglie la colonna C e non la A.
+  function pickArticleCol(header, qtaIdx){
+    var found = -1, i, c;
+    for (i = 0; i < header.length; i++){
+      c = norm(header[i]);
+      if (HDR_ART.indexOf(c) > -1){
+        if (qtaIdx >= 0 && i > qtaIdx) break;
+        found = i;
+      }
+    }
+    return found;
+  }
+
+  function firstIndex(header, names){
+    for (var i = 0; i < header.length; i++){
+      if (names.indexOf(norm(header[i])) > -1) return i;
+    }
+    return -1;
+  }
+
+  // risolve intestazione e colonne; ritorna anche come sono state trovate
+  function resolveLayout(rows, kind){
+    var fb = FALLBACK[kind];
+    var hIdx = findHeaderRow(rows);
+    var byName = true;
+    if (hIdx < 0){ hIdx = fb.headerRow; byName = false; }
+
+    var header = rows[hIdx] || [];
+    var qta  = firstIndex(header, HDR_QTA);
+    var art  = pickArticleCol(header, qta);
+    var desc = firstIndex(header, HDR_DESC);
+
+    var missing = [];
+    if (art < 0){ art = fb.art; missing.push("articolo"); }
+    if (qta < 0){ qta = fb.qta; missing.push("quantita stoccata"); }
+    if (desc < 0) desc = fb.desc;
+    if (missing.length) byName = false;
+
+    return {headerRow:hIdx, art:art, desc:desc, qta:qta, byName:byName, missing:missing};
+  }
+
+  /* ---------- aggregazione ---------- */
+
+  function aggregate(rows, layout){
+    var map = {}, order = [], i, r, code, key, rec, used = 0;
+    for (i = layout.headerRow + 1; i < rows.length; i++){
+      r = rows[i];
+      if (!r) continue;
+      code = toCode(r[layout.art]);
+      if (code === "") continue;
+      key = code.toUpperCase();
+      rec = map[key];
+      if (!rec){
+        rec = map[key] = {code:code, desc:"", qta:0, rows:0};
+        order.push(key);
+      }
+      rec.qta += toNum(r[layout.qta]);
+      rec.rows++;
+      if (!rec.desc && layout.desc >= 0 && r[layout.desc] != null){
+        rec.desc = String(r[layout.desc]).trim();
+      }
+      used++;
+    }
+    return {map:map, order:order, rowsUsed:used};
+  }
+
+  /* ---------- stato ---------- */
+
+  var files = { rotture:null, lf:null };   // {name, rows, layout, agg}
+  var report = null;                       // righe del report + totali
+
+  function slotRender(){
+    [["rotture","slotRot"],["lf","slotLf"]].forEach(function(p){
+      var f = files[p[0]], node = el(p[1]);
+      var fname = node.querySelector(".fname"), meta = node.querySelector(".meta");
+      if (!f){
+        node.classList.add("empty");
+        fname.textContent = "nessun file";
+        meta.textContent = "";
+      } else {
+        node.classList.remove("empty");
+        fname.textContent = f.name;
+        meta.textContent = f.agg.rowsUsed + " righe · " +
+                           f.agg.order.length + " articoli · " +
+                           (f.layout.byName ? "colonne riconosciute dalle intestazioni"
+                                            : "colonne per posizione fissa");
+      }
+    });
+    var any = !!(files.rotture || files.lf);
+    el("btnReset").disabled = !any;
+    el("btnSwap").disabled  = !(files.rotture && files.lf);
+  }
+
+  /* ---------- costruzione del report ---------- */
+
+  function build(){
+    if (!files.rotture || !files.lf){
+      el("results").classList.add("hidden");
+      el("btnExport").classList.add("hidden");
+      report = null;
+      return;
+    }
+
+    var R = files.rotture.agg, L = files.lf.agg;
+    var keys = R.order.slice(), seen = {}, i, k;
+    for (i = 0; i < keys.length; i++) seen[keys[i]] = true;
+    for (i = 0; i < L.order.length; i++){
+      k = L.order[i];
+      if (!seen[k]){ keys.push(k); seen[k] = true; }
+    }
+
+    var rows = [], tot = {rot:0, found:0, delta:0}, onlyRot = 0, onlyLf = 0;
+    for (i = 0; i < keys.length; i++){
+      k = keys[i];
+      var a = R.map[k], b = L.map[k];
+      var rot = a ? a.qta : 0;
+      var found = b ? b.qta : 0;
+      var delta = rot > found ? found : rot;   // se le rotture superano i found, vale il found
+      if (!a) onlyLf++;
+      if (!b) onlyRot++;
+      rows.push({
+        code: (a ? a.code : b.code),
+        desc: (a && a.desc) ? a.desc : "",
+        rot: rot, found: found, delta: delta
+      });
+      tot.rot += rot; tot.found += found; tot.delta += delta;
+    }
+
+    rows.sort(function(x, y){
+      if (y.delta !== x.delta) return y.delta - x.delta;
+      if (y.rot !== x.rot) return y.rot - x.rot;
+      return x.code.localeCompare(y.code, "it", {numeric:true});
+    });
+
+    report = {rows:rows, tot:tot};
+    renderReport(onlyRot, onlyLf);
+  }
+
+  function renderReport(onlyRot, onlyLf){
+    var tb = document.querySelector("#report tbody");
+    var frag = document.createDocumentFragment();
+    report.rows.forEach(function(r){
+      var tr = document.createElement("tr");
+      function cell(text, cls){
+        var td = document.createElement("td");
+        if (cls) td.className = cls;
+        td.textContent = text;
+        tr.appendChild(td);
+      }
+      cell(r.code);
+      cell(r.desc, "desc");
+      cell(fnum(r.rot), "num");
+      cell(fnum(r.found), "num");
+      cell(fnum(r.delta), "num");
+      frag.appendChild(tr);
+    });
+    tb.innerHTML = "";
+    tb.appendChild(frag);
+
+    el("tRot").textContent   = fnum(report.tot.rot);
+    el("tFound").textContent = fnum(report.tot.found);
+    el("tDelta").textContent = fnum(report.tot.delta);
+    el("cArt").textContent   = fnum(report.rows.length);
+    el("cRot").textContent   = fnum(report.tot.rot);
+    el("cFound").textContent = fnum(report.tot.found);
+    el("cDelta").textContent = fnum(report.tot.delta);
+
+    el("detail").textContent =
+      (report.rows.length - onlyRot - onlyLf) + " articoli presenti in entrambi i file · " +
+      onlyRot + " solo nelle rotture · " + onlyLf + " solo nel lost & found.";
+
+    el("results").classList.remove("hidden");
+    el("btnExport").classList.remove("hidden");
+  }
+
+  /* ---------- export Excel ---------- */
+
+  function exportXlsx(){
+    if (!report) return;
+    var aoa = [["ARTICOLO","DESCRIZIONE ARTICOLO","ROTTURE","FOUND","DELTA"]];
+    report.rows.forEach(function(r){
+      aoa.push([r.code, r.desc, round2(r.rot), round2(r.found), round2(r.delta)]);
+    });
+    aoa.push(["TOTALE", "", round2(report.tot.rot), round2(report.tot.found), round2(report.tot.delta)]);
+
+    var ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"] = [{wch:16},{wch:46},{wch:12},{wch:12},{wch:12}];
+    ws["!autofilter"] = {ref: XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:report.rows.length, c:4}})};
+
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Report");
+    XLSX.writeFile(wb, "Report_Rotture_Lost_Found_" + today() + ".xlsx");
+  }
+
+  function round2(n){ return Math.round(n * 100) / 100; }
+  function today(){
+    var d = new Date(), p = function(x){ return (x < 10 ? "0" : "") + x; };
+    return d.getFullYear() + "-" + p(d.getMonth()+1) + "-" + p(d.getDate());
+  }
+
+  /* ---------- caricamento file ---------- */
+
+  function readFile(file){
+    return new Promise(function(resolve, reject){
+      var fr = new FileReader();
+      fr.onload = function(){ resolve(fr.result); };
+      fr.onerror = function(){ reject(new Error("Impossibile leggere " + file.name)); };
+      fr.readAsArrayBuffer(file);
+    });
+  }
+
+  function handleFiles(fileList){
+    var list = Array.prototype.slice.call(fileList).filter(function(f){
+      return /\.(xlsx|xlsm|xls)$/i.test(f.name);
+    });
+    clearMessages();
+    if (!list.length){ showMessage("Trascina file Excel (.xlsx o .xls).", "err"); return; }
+    if (list.length > 2){
+      showMessage("Hai trascinato " + list.length + " file: uso solo i primi due.", "warn");
+      list = list.slice(0, 2);
+    }
+
+    Promise.all(list.map(function(f){
+      return readFile(f).then(function(buf){
+        var rows = readWorkbook(buf);
+        var hIdx = findHeaderRow(rows);
+        var header = rows[hIdx >= 0 ? hIdx : 3] || [];
+        return {name:f.name, rows:rows, header:header, score:scoreKind(header)};
+      });
+    })).then(function(parsed){
+      assign(parsed);
+    }).catch(function(err){
+      showMessage(err.message || "Errore nella lettura del file.", "err");
+    });
+  }
+
+  function prepare(p, kind){
+    var layout = resolveLayout(p.rows, kind);
+    var agg = aggregate(p.rows, layout);
+    return {name:p.name, rows:p.rows, layout:layout, agg:agg, score:p.score, header:p.header};
+  }
+
+  function assign(parsed){
+    if (parsed.length === 2){
+      var a = parsed[0], b = parsed[1];
+      var aIsRot;
+      var da = a.score.rot - a.score.lf, db = b.score.rot - b.score.lf;
+      if (da !== db) aIsRot = da > db;
+      else aIsRot = a.header.length >= b.header.length;   // la giacenza ha molte piu' colonne
+      files.rotture = prepare(aIsRot ? a : b, "rotture");
+      files.lf      = prepare(aIsRot ? b : a, "lf");
+      if (da === db) showMessage("I due file si somigliano: ho assegnato i ruoli in base al numero di colonne. Controlla e usa “Inverti i due file” se serve.", "warn");
+    } else {
+      var p = parsed[0];
+      var kind = (p.score.rot >= p.score.lf) ? "rotture" : "lf";
+      if (files[kind] && !files[kind === "rotture" ? "lf" : "rotture"]){
+        // stesso ruolo gia' occupato: sostituisco
+      }
+      files[kind] = prepare(p, kind);
+      if (!files.rotture || !files.lf){
+        showMessage("Caricato il file " + (kind === "rotture" ? "delle rotture" : "lost & found") + ". Manca l'altro file.", "warn");
+      }
+    }
+    checkQuality();
+    slotRender();
+    build();
+  }
+
+  function checkQuality(){
+    ["rotture","lf"].forEach(function(kind){
+      var f = files[kind];
+      if (!f) return;
+      var label = kind === "rotture" ? "rotture" : "lost & found";
+      if (!f.layout.byName){
+        showMessage("Nel file " + label + " (" + f.name + ") non ho trovato tutte le intestazioni attese: ho usato le colonne per posizione fissa. Verifica i numeri.", "warn");
+      }
+      if (f.agg.rowsUsed === 0){
+        showMessage("Nel file " + label + " (" + f.name + ") non ho trovato righe con un codice articolo.", "err");
+      }
+    });
+  }
+
+  function reset(){
+    files.rotture = null; files.lf = null; report = null;
+    clearMessages(); slotRender();
+    document.querySelector("#report tbody").innerHTML = "";
+    el("results").classList.add("hidden");
+    el("btnExport").classList.add("hidden");
+    el("fileInput").value = "";
+  }
+
+  function swap(){
+    if (!files.rotture || !files.lf) return;
+    var a = files.rotture, b = files.lf;
+    clearMessages();
+    files.rotture = prepare({name:b.name, rows:b.rows, header:b.header, score:b.score}, "rotture");
+    files.lf      = prepare({name:a.name, rows:a.rows, header:a.header, score:a.score}, "lf");
+    checkQuality();
+    slotRender();
+    build();
+  }
+
+  /* ---------- eventi ---------- */
+
+  var drop = el("drop"), input = el("fileInput");
+
+  drop.addEventListener("click", function(){ input.click(); });
+  input.addEventListener("change", function(){ handleFiles(input.files); });
+
+  ["dragenter","dragover"].forEach(function(ev){
+    drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.add("over"); });
+  });
+  ["dragleave","drop"].forEach(function(ev){
+    drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.remove("over"); });
+  });
+  drop.addEventListener("drop", function(e){
+    if (e.dataTransfer && e.dataTransfer.files) handleFiles(e.dataTransfer.files);
+  });
+  window.addEventListener("dragover", function(e){ e.preventDefault(); });
+  window.addEventListener("drop", function(e){ e.preventDefault(); });
+
+  if (typeof XLSX === "undefined"){
+    showMessage("Non riesco a caricare la libreria di lettura Excel da cdnjs.cloudflare.com. Se la rete la blocca, scarica xlsx.full.min.js, mettilo nella stessa cartella di questa pagina e cambia il src dello script in \"xlsx.full.min.js\".", "err");
+    drop.style.pointerEvents = "none";
+    drop.style.opacity = ".5";
+  }
+
+  el("btnReset").addEventListener("click", reset);
+  el("btnSwap").addEventListener("click", swap);
+  el("btnExport").addEventListener("click", exportXlsx);
+
+  slotRender();
+})();
+</script>
+</body>
+</html>

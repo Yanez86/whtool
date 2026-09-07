@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aggregatore Giacenze</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#15181d; --muted:#6b7280;
+    --line:#e3e6ea; --accent:#1f6feb; --accent-soft:#e8f0fe;
+    --ok:#0f7b45; --ok-soft:#e6f4ec;
+    --warn:#8a5a00; --warn-soft:#fff5e0;
+    --err:#b42318; --err-soft:#fdeceb;
+    --head:#f7f8fa; --zebra:#fbfcfd;
+    --radius:10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1216; --panel:#171b21; --ink:#e8eaed; --muted:#9aa3af;
+      --line:#282e37; --accent:#4c8dff; --accent-soft:#1b2740;
+      --ok:#4ade80; --ok-soft:#14301f;
+      --warn:#fbbf24; --warn-soft:#33260c;
+      --err:#fca5a5; --err-soft:#3a1614;
+      --head:#1d222a; --zebra:#1b2028;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;}
+
+  /* barra di navigazione */
+  .topbar{background:var(--panel);border-bottom:1px solid var(--line)}
+  .topbar .inner{max-width:1180px;margin:0 auto;padding:0 20px;display:flex;align-items:center;
+    gap:18px;height:52px;flex-wrap:wrap}
+  .brand{font-weight:700;letter-spacing:-.01em;color:var(--ink);text-decoration:none;white-space:nowrap}
+  .brand span{color:var(--muted);font-weight:400}
+  .navlinks{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+  .navlinks a{color:var(--muted);text-decoration:none;padding:6px 12px;border-radius:8px;white-space:nowrap}
+  .navlinks a:hover{background:var(--accent-soft);color:var(--ink)}
+  .navlinks a.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 64px}
+  header h1{margin:0 0 4px;font-size:22px;letter-spacing:-.01em}
+  header p{margin:0 0 4px;color:var(--muted);max-width:78ch}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px;margin-top:20px}
+  .panel h2{margin:0 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+
+  /* dropzone */
+  #drop{border:2px dashed var(--line);border-radius:var(--radius);background:var(--panel);
+    padding:40px 20px;text-align:center;cursor:pointer;transition:.15s;margin-top:20px}
+  #drop:hover,#drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  #drop strong,#drop .big{display:block;font-size:15px;font-weight:600;margin-bottom:4px}
+  #drop span,#drop .small{color:var(--muted);font-size:13px}
+  input[type=file]{display:none}
+
+  /* pulsanti */
+  button{font:inherit;border-radius:8px;border:1px solid var(--line);background:var(--panel);
+    color:var(--ink);padding:8px 14px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.primary:hover{filter:brightness(1.08)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  button:disabled:hover{border-color:var(--line)}
+  .btns,.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+
+  /* liste campi con checkbox */
+  .row{display:flex;gap:16px;flex-wrap:wrap}
+  .col{flex:1 1 320px;min-width:280px}
+  .fieldlist{border:1px solid var(--line);border-radius:8px;max-height:300px;overflow:auto;background:var(--bg)}
+  .fieldlist label{display:flex;align-items:center;gap:8px;padding:6px 10px;
+    border-bottom:1px solid var(--line);cursor:pointer}
+  .fieldlist label:last-child{border-bottom:none}
+  .fieldlist label:hover{background:var(--accent-soft)}
+  .fieldlist input{margin:0;flex:none}
+  .fieldlist .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fieldlist .tag{margin-left:auto;font-size:11px;color:var(--muted);flex:none}
+  .search{width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:8px;
+    background:var(--panel);color:var(--ink);margin-bottom:8px}
+  select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel);color:var(--ink)}
+
+  /* riquadri file (report rotture) */
+  .slots{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+  @media(max-width:680px){.slots{grid-template-columns:1fr}}
+  .slot{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);padding:12px 14px}
+  .slot .lab{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .slot .fname{margin-top:4px;font-weight:600;word-break:break-all}
+  .slot .meta{color:var(--muted);font-size:12px;margin-top:2px}
+  .slot.empty .fname{color:var(--muted);font-weight:400}
+
+  /* riquadri numerici */
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:680px){.cards{grid-template-columns:repeat(2,1fr)}}
+  .card{border:1px solid var(--line);border-radius:var(--radius);padding:14px;background:var(--bg)}
+  .card .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .card .v{font-size:22px;font-weight:650;margin-top:4px;font-variant-numeric:tabular-nums}
+
+  /* etichette e messaggi */
+  .pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px;
+    background:var(--ok-soft);color:var(--ok)}
+  .meta,.hint{color:var(--muted);font-size:13px}
+  .hint{margin-top:10px;font-size:12px}
+  .msg{border-radius:8px;padding:10px 14px;margin-top:12px;font-size:13px;border:1px solid transparent}
+  .msg.err,.err{background:var(--err-soft);color:var(--err);border-color:var(--err)}
+  .msg.warn{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
+
+  /* tabelle */
+  .tablewrap{margin-top:16px;border:1px solid var(--line);border-radius:var(--radius);
+    overflow:auto;max-height:65vh;background:var(--panel)}
+  table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+  th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{position:sticky;top:0;background:var(--head);z-index:1;font-size:11px;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--muted);font-weight:700}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  td.desc{white-space:normal;min-width:240px}
+  tbody tr:nth-child(even){background:var(--zebra)}
+  tfoot td{position:sticky;bottom:0;background:var(--head);font-weight:700;
+    border-top:2px solid var(--line);border-bottom:none}
+
+  .hidden{display:none}
+</style>
+</head>
+<body>
+  <div class="topbar"><div class="inner">
+    <a class="brand" href="index.html">Tool Magazzino</a>
+    <nav class="navlinks">
+      <a href="giacenze.html" class="active">Aggregatore giacenze</a>
+      <a href="rotture.html">Report rotture / L&amp;F</a>
+    </nav>
+  </div></div>
+
+  <div class="wrap">
+  <header>
+    <h1>Aggregatore Giacenze</h1>
+    <p>Trascina un file Excel o CSV: viene aggregato per articolo, descrizione, stato contabile e data scadenza, sommando le quantità. Tutto avviene nel browser, nessun dato viene caricato online.</p>
+  </header>
+
+  <div id="drop">
+    <strong>Trascina qui il file</strong>
+    <span>oppure clicca per selezionarlo — .xlsx, .xls, .csv</span>
+    <input type="file" id="file" accept=".xlsx,.xls,.xlsm,.csv" class="hidden">
+  </div>
+  <div id="error" class="err hidden"></div>
+
+  <div id="config" class="panel hidden">
+    <h2>Configurazione</h2>
+    <div class="meta" id="fileinfo"></div>
+    <div class="row" style="margin-top:14px">
+      <div class="col">
+        <label style="display:block;font-weight:600;margin-bottom:6px">Raggruppa per</label>
+        <input class="search" id="s-group" placeholder="Cerca campo…">
+        <div class="fieldlist" id="groupList"></div>
+      </div>
+      <div class="col">
+        <label style="display:block;font-weight:600;margin-bottom:6px">Somma</label>
+        <input class="search" id="s-sum" placeholder="Cerca campo…">
+        <div class="fieldlist" id="sumList"></div>
+      </div>
+    </div>
+    <div class="btns">
+      <label style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="countUdc" checked> Aggiungi colonna "N. UdC"
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;margin-left:8px">
+        Ordina per
+        <select id="sortBy"></select>
+      </label>
+      <button id="reset" style="margin-left:auto">Ripristina default</button>
+      <button class="primary" id="run">Aggrega</button>
+    </div>
+  </div>
+
+  <div id="result" class="panel hidden">
+    <h2>Risultato</h2>
+    <div class="meta" id="stats"></div>
+    <div class="btns" style="margin:12px 0">
+      <button class="primary" id="dl">Scarica XLSX</button>
+      <button id="dlcsv">Scarica CSV</button>
+      <button id="again">Carica un altro file</button>
+    </div>
+    <div class="tablewrap"><table id="tbl"></table></div>
+    <div class="meta" style="margin-top:8px" id="previewNote"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ---------- campi di default ---------- */
+const DEFAULT_GROUP = ["Articolo", "Descrizione Articolo", "Stato Contabile", "Data Scadenza"];
+const DEFAULT_SUM   = ["Quantità Stoccata"];
+
+/* nomi alternativi accettati per i default (senza accenti/maiuscole) */
+const ALIASES = {
+  "articolo": ["articolo", "codice articolo", "cod articolo", "cod. articolo"],
+  "descrizione articolo": ["descrizione articolo", "descrizione", "desc articolo"],
+  "stato contabile": ["stato contabile", "stato"],
+  "data scadenza": ["data scadenza", "scadenza", "data di scadenza"],
+  "quantità stoccata": ["quantita stoccata", "quantità stoccata", "qta stoccata", "q.ta stoccata"]
+};
+
+/* ---------- stato ---------- */
+let COLS = [];      // [{name, idx, numeric}]
+let ROWS = [];      // array di array (solo dati)
+let OUT = null;     // {header:[], rows:[[]], numericCols:Set, dateCols:Set}
+let PREF_ORDER = []; // ordine preferito delle colonne di raggruppamento
+let FILENAME = "";
+
+/* ---------- utility ---------- */
+const norm = s => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+                  .replace(/\s+/g," ").trim().toLowerCase();
+const $ = id => document.getElementById(id);
+
+function showError(msg){ const e=$("error"); e.textContent=msg; e.classList.remove("hidden"); }
+function clearError(){ $("error").classList.add("hidden"); }
+
+function isDate(v){ return v instanceof Date && !isNaN(v); }
+function fmtDate(d){
+  const p = n => String(n).padStart(2,"0");
+  return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear();
+}
+function fmtNum(n){
+  if(typeof n !== "number") return n;
+  return n.toLocaleString("it-IT",{maximumFractionDigits:3});
+}
+
+/* ---------- lettura file ---------- */
+$("drop").addEventListener("click", ()=> $("file").click());
+$("file").addEventListener("change", e => { if(e.target.files[0]) handleFile(e.target.files[0]); });
+["dragenter","dragover"].forEach(ev =>
+  $("drop").addEventListener(ev, e => { e.preventDefault(); $("drop").classList.add("over"); }));
+["dragleave","drop"].forEach(ev =>
+  $("drop").addEventListener(ev, e => { e.preventDefault(); $("drop").classList.remove("over"); }));
+$("drop").addEventListener("drop", e => {
+  const f = e.dataTransfer.files[0];
+  if(f) handleFile(f);
+});
+
+function handleFile(file){
+  clearError();
+  FILENAME = file.name.replace(/\.[^.]+$/,"");
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try{
+      const wb = XLSX.read(ev.target.result, {type:"array", cellDates:true, raw:false});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, blankrows:false, raw:true});
+      buildFromAoa(aoa, file.name, wb.SheetNames[0]);
+    }catch(err){
+      console.error(err);
+      showError("Non riesco a leggere il file: " + err.message);
+    }
+  };
+  reader.onerror = () => showError("Errore di lettura del file.");
+  reader.readAsArrayBuffer(file);
+}
+
+/* trova la riga di intestazione: quella con più celle testuali non vuote nelle prime 30 righe */
+function findHeaderRow(aoa){
+  let best = 0, bestScore = -1;
+  const limit = Math.min(aoa.length, 30);
+  for(let i=0;i<limit;i++){
+    const r = aoa[i] || [];
+    let score = 0;
+    for(const c of r){
+      if(c===null || c===undefined || c==="") continue;
+      if(typeof c === "string") score += 1;
+      else score += 0.2;              // numeri/date in intestazione sono improbabili
+    }
+    // bonus se contiene nomi noti
+    const set = new Set(r.map(norm));
+    for(const k of Object.keys(ALIASES)) if(set.has(norm(k))) score += 5;
+    if(score > bestScore){ bestScore = score; best = i; }
+  }
+  return best;
+}
+
+function buildFromAoa(aoa, fname, sheetName){
+  if(!FILENAME) FILENAME = String(fname || "giacenza").replace(/\.[^.]+$/,"");
+  if(!aoa.length){ showError("Il foglio è vuoto."); return; }
+  const hIdx = findHeaderRow(aoa);
+  const header = aoa[hIdx] || [];
+  const data = aoa.slice(hIdx+1).filter(r => r && r.some(c => c!==null && c!==undefined && c!==""));
+
+  if(!data.length){ showError("Non ho trovato righe di dati sotto l'intestazione."); return; }
+
+  // colonne con nome (i duplicati vengono resi univoci)
+  const seen = {};
+  COLS = [];
+  header.forEach((h,i) => {
+    let name = String(h ?? "").trim();
+    if(!name) return;
+    if(seen[name]){ seen[name]++; name = name + " (" + seen[name] + ")"; }
+    else seen[name] = 1;
+    COLS.push({name, idx:i, numeric:false});
+  });
+
+  // rileva colonne numeriche
+  const sample = data.slice(0, 400);
+  COLS.forEach(c => {
+    let nums = 0, vals = 0;
+    for(const r of sample){
+      const v = r[c.idx];
+      if(v===null || v===undefined || v==="") continue;
+      vals++;
+      if(typeof v === "number" && !isDate(v)) nums++;
+    }
+    c.numeric = vals>0 && nums/vals >= 0.8;
+  });
+
+  ROWS = data;
+  $("fileinfo").innerHTML = `<span class="pill">${data.length.toLocaleString("it-IT")} righe</span> `
+    + `<span class="pill">${COLS.length} colonne</span> `
+    + `&nbsp;${fname} — foglio “${sheetName}”, intestazione alla riga ${hIdx+1}`;
+  renderLists(true);
+  $("config").classList.remove("hidden");
+  $("result").classList.add("hidden");
+  $("config").scrollIntoView({behavior:"smooth", block:"nearest"});
+}
+
+/* ---------- liste checkbox ---------- */
+/* per ogni campo di default seleziona UNA sola colonna:
+   prima l'eventuale corrispondenza esatta, poi il primo alias trovato */
+function resolveDefaults(wantedList){
+  const chosen = new Set();
+  wantedList.forEach(w => {
+    const exact = COLS.find(c => norm(c.name) === norm(w) && !chosen.has(c.name));
+    if(exact){ chosen.add(exact.name); return; }
+    const alias = ALIASES[norm(w)] || [];
+    for(const a of alias){
+      const hit = COLS.find(c => norm(c.name) === norm(a) && !chosen.has(c.name));
+      if(hit){ chosen.add(hit.name); return; }
+    }
+  });
+  return chosen;
+}
+
+function renderLists(applyDefaults){
+  const gl = $("groupList"), sl = $("sumList");
+  const defG = applyDefaults ? resolveDefaults(DEFAULT_GROUP) : new Set(getChecked("groupList"));
+  if(applyDefaults) PREF_ORDER = [...defG];
+  const defS = applyDefaults ? resolveDefaults(DEFAULT_SUM)   : new Set(getChecked("sumList"));
+  gl.innerHTML = ""; sl.innerHTML = "";
+
+  // i campi selezionati vengono mostrati in cima
+  const ordered = sel => [...COLS.filter(c=>sel.has(c.name)), ...COLS.filter(c=>!sel.has(c.name))];
+  ordered(defG).forEach(c => gl.appendChild(mkRow(c, defG.has(c.name))));
+  ordered(defS).forEach(c => sl.appendChild(mkRow(c, defS.has(c.name))));
+  refreshSort();
+}
+
+function mkRow(c, checked){
+  const lab = document.createElement("label");
+  lab.dataset.name = norm(c.name);
+  if(checked) lab.style.background = "var(--accent-soft)";
+  const cb = document.createElement("input");
+  cb.type = "checkbox"; cb.value = c.name; cb.checked = checked;
+  cb.addEventListener("change", () => {
+    lab.style.background = cb.checked ? "var(--accent-soft)" : "";
+    refreshSort();
+  });
+  const nm = document.createElement("span");
+  nm.className = "nm"; nm.textContent = c.name;
+  lab.append(cb, nm);
+  if(c.numeric){
+    const t = document.createElement("span");
+    t.className = "tag"; t.textContent = "num";
+    lab.appendChild(t);
+  }
+  return lab;
+}
+
+function getChecked(listId){
+  return [...$(listId).querySelectorAll("input:checked")].map(i => i.value);
+}
+
+function wireSearch(inputId, listId){
+  $(inputId).addEventListener("input", e => {
+    const q = norm(e.target.value);
+    $(listId).querySelectorAll("label").forEach(l => {
+      l.style.display = !q || l.dataset.name.includes(q) ? "" : "none";
+    });
+  });
+}
+wireSearch("s-group","groupList");
+wireSearch("s-sum","sumList");
+
+function refreshSort(){
+  const sel = $("sortBy");
+  const prev = sel.value;
+  const opts = ["— nessuno —", ...getChecked("groupList"), ...getChecked("sumList")];
+  sel.innerHTML = opts.map(o => `<option>${o.replace(/</g,"&lt;")}</option>`).join("");
+  if(opts.includes(prev)) sel.value = prev;
+}
+
+$("reset").addEventListener("click", () => renderLists(true));
+$("again").addEventListener("click", () => {
+  $("config").classList.add("hidden"); $("result").classList.add("hidden");
+  $("file").value = ""; window.scrollTo({top:0,behavior:"smooth"});
+});
+
+/* ---------- aggregazione ---------- */
+$("run").addEventListener("click", () => {
+  clearError();
+  let groupNames = getChecked("groupList");
+  // le colonne richieste per default restano nell'ordine previsto, le altre seguono
+  groupNames.sort((a,b) => {
+    const ia = PREF_ORDER.indexOf(a), ib = PREF_ORDER.indexOf(b);
+    if(ia >= 0 && ib >= 0) return ia - ib;
+    if(ia >= 0) return -1;
+    if(ib >= 0) return 1;
+    return 0;
+  });
+  const sumNames   = getChecked("sumList");
+  if(!groupNames.length){ showError("Seleziona almeno un campo di raggruppamento."); return; }
+
+  const byName = Object.fromEntries(COLS.map(c => [c.name, c]));
+  const gCols = groupNames.map(n => byName[n]);
+  const sCols = sumNames.map(n => byName[n]);
+  const withCount = $("countUdc").checked;
+
+  const map = new Map();
+  for(const r of ROWS){
+    const keyVals = gCols.map(c => {
+      const v = r[c.idx];
+      if(v===null || v===undefined || v==="") return "";
+      if(isDate(v)) return fmtDate(v);
+      return typeof v === "string" ? v.trim() : v;
+    });
+    const key = keyVals.map(v => String(v)).join("");
+    let e = map.get(key);
+    if(!e){
+      e = {vals:keyVals, raw:gCols.map(c => r[c.idx]), sums:new Array(sCols.length).fill(0), n:0};
+      map.set(key, e);
+    }
+    e.n++;
+    sCols.forEach((c,i) => {
+      const v = r[c.idx];
+      if(typeof v === "number") e.sums[i] += v;
+      else if(typeof v === "string" && v.trim()!==""){
+        const num = parseFloat(v.replace(/\./g,"").replace(",","."));
+        if(!isNaN(num)) e.sums[i] += num;
+      }
+    });
+  }
+
+  const header = [...groupNames, ...sumNames];
+  if(withCount) header.push("N. UdC");
+
+  const dateCols = new Set();
+  gCols.forEach((c,i) => { if(ROWS.some(r => isDate(r[c.idx]))) dateCols.add(i); });
+
+  let rows = [...map.values()].map(e => {
+    const out = e.raw.map((v,i) => {
+      if(isDate(v)) return v;
+      if(v===null || v===undefined) return "";
+      return typeof v === "string" ? v.trim() : v;
+    });
+    e.sums.forEach(s => out.push(Math.round(s*1e6)/1e6));
+    if(withCount) out.push(e.n);
+    return out;
+  });
+
+  // ordinamento
+  const sortName = $("sortBy").value;
+  const si = header.indexOf(sortName);
+  if(si >= 0){
+    rows.sort((a,b) => {
+      const x=a[si], y=b[si];
+      if(isDate(x) && isDate(y)) return x-y;
+      if(typeof x==="number" && typeof y==="number") return x-y;
+      return String(x).localeCompare(String(y), "it", {numeric:true});
+    });
+  }
+
+  const numStart = groupNames.length;
+  OUT = {header, rows, numStart, dateCols};
+  renderResult();
+});
+
+function renderResult(){
+  const {header, rows, numStart} = OUT;
+  const inRows = ROWS.length;
+  $("stats").innerHTML = `<span class="pill">${inRows.toLocaleString("it-IT")} righe in ingresso</span> `
+    + `<span class="pill">${rows.length.toLocaleString("it-IT")} righe aggregate</span> `
+    + `<span class="pill">${header.length} colonne</span>`;
+
+  const max = 200;
+  const t = $("tbl");
+  let html = "<thead><tr>" + header.map((h,i) =>
+    `<th class="${i>=numStart?'num':''}">${String(h).replace(/</g,"&lt;")}</th>`).join("") + "</tr></thead><tbody>";
+  rows.slice(0,max).forEach(r => {
+    html += "<tr>" + r.map((v,i) => {
+      let s = isDate(v) ? fmtDate(v) : (typeof v === "number" ? fmtNum(v) : String(v ?? ""));
+      return `<td class="${i>=numStart?'num':''}">${s.replace(/</g,"&lt;")}</td>`;
+    }).join("") + "</tr>";
+  });
+  t.innerHTML = html + "</tbody>";
+  $("previewNote").textContent = rows.length > max
+    ? `Anteprima delle prime ${max} righe di ${rows.length.toLocaleString("it-IT")}. Il file scaricato le contiene tutte.`
+    : "";
+  $("result").classList.remove("hidden");
+  $("result").scrollIntoView({behavior:"smooth", block:"nearest"});
+}
+
+/* ---------- export ---------- */
+function outName(ext){
+  const d = new Date(), p = n => String(n).padStart(2,"0");
+  return `${FILENAME}_aggregato_${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}.${ext}`;
+}
+
+$("dl").addEventListener("click", () => {
+  if(!OUT) return;
+  const aoa = [OUT.header, ...OUT.rows];
+  const ws = XLSX.utils.aoa_to_sheet(aoa, {cellDates:true});
+  const range = XLSX.utils.decode_range(ws["!ref"]);
+
+  // formato date e numeri
+  for(let R=1; R<=range.e.r; R++){
+    for(let C=0; C<=range.e.c; C++){
+      const cell = ws[XLSX.utils.encode_cell({r:R,c:C})];
+      if(!cell) continue;
+      if(cell.t === "d") cell.z = "dd/mm/yyyy";
+      else if(cell.t === "n") cell.z = "#,##0.###";
+    }
+  }
+  // larghezza colonne
+  ws["!cols"] = OUT.header.map((h,i) => {
+    let w = String(h).length;
+    for(const r of OUT.rows.slice(0,500)){
+      const v = r[i];
+      const s = isDate(v) ? 10 : String(v ?? "").length;
+      if(s > w) w = s;
+    }
+    return {wch: Math.min(Math.max(w+2, 10), 50)};
+  });
+  ws["!autofilter"] = {ref: ws["!ref"]};
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Aggregato");
+  XLSX.writeFile(wb, outName("xlsx"), {cellDates:true, compression:true});
+});
+
+$("dlcsv").addEventListener("click", () => {
+  if(!OUT) return;
+  const esc = v => {
+    let s = isDate(v) ? fmtDate(v) : (typeof v === "number" ? String(v).replace(".",",") : String(v ?? ""));
+    return /[";\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  };
+  const csv = [OUT.header.join(";"), ...OUT.rows.map(r => r.map(esc).join(";"))].join("\r\n");
+  const blob = new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = outName("csv");
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+});
+</script>
+</body>
+</html>
