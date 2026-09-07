@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inventario</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#15181d; --muted:#6b7280;
+    --line:#e3e6ea; --accent:#1f6feb; --accent-soft:#e8f0fe;
+    --ok:#0f7b45; --ok-soft:#e6f4ec;
+    --warn:#8a5a00; --warn-soft:#fff5e0;
+    --err:#b42318; --err-soft:#fdeceb;
+    --head:#f7f8fa; --zebra:#fbfcfd;
+    --radius:10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1216; --panel:#171b21; --ink:#e8eaed; --muted:#9aa3af;
+      --line:#282e37; --accent:#4c8dff; --accent-soft:#1b2740;
+      --ok:#4ade80; --ok-soft:#14301f;
+      --warn:#fbbf24; --warn-soft:#33260c;
+      --err:#fca5a5; --err-soft:#3a1614;
+      --head:#1d222a; --zebra:#1b2028;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;}
+
+  /* barra di navigazione */
+  .topbar{background:var(--panel);border-bottom:1px solid var(--line)}
+  .topbar .inner{max-width:1180px;margin:0 auto;padding:0 20px;display:flex;align-items:center;
+    gap:18px;height:52px;flex-wrap:wrap}
+  .brand{font-weight:700;letter-spacing:-.01em;color:var(--ink);text-decoration:none;white-space:nowrap}
+  .brand span{color:var(--muted);font-weight:400}
+  .navlinks{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+  .navlinks a{color:var(--muted);text-decoration:none;padding:6px 12px;border-radius:8px;white-space:nowrap}
+  .navlinks a:hover{background:var(--accent-soft);color:var(--ink)}
+  .navlinks a.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 64px}
+  header h1{margin:0 0 4px;font-size:22px;letter-spacing:-.01em}
+  header p{margin:0 0 4px;color:var(--muted);max-width:78ch}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px;margin-top:20px}
+  .panel h2{margin:0 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+
+  /* dropzone */
+  #drop{border:2px dashed var(--line);border-radius:var(--radius);background:var(--panel);
+    padding:40px 20px;text-align:center;cursor:pointer;transition:.15s;margin-top:20px}
+  #drop:hover,#drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  #drop strong,#drop .big{display:block;font-size:15px;font-weight:600;margin-bottom:4px}
+  #drop span,#drop .small{color:var(--muted);font-size:13px}
+  input[type=file]{display:none}
+
+  /* pulsanti */
+  button{font:inherit;border-radius:8px;border:1px solid var(--line);background:var(--panel);
+    color:var(--ink);padding:8px 14px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.primary:hover{filter:brightness(1.08)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  button:disabled:hover{border-color:var(--line)}
+  .btns,.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+
+  /* liste campi con checkbox */
+  .row{display:flex;gap:16px;flex-wrap:wrap}
+  .col{flex:1 1 320px;min-width:280px}
+  .fieldlist{border:1px solid var(--line);border-radius:8px;max-height:300px;overflow:auto;background:var(--bg)}
+  .fieldlist label{display:flex;align-items:center;gap:8px;padding:6px 10px;
+    border-bottom:1px solid var(--line);cursor:pointer}
+  .fieldlist label:last-child{border-bottom:none}
+  .fieldlist label:hover{background:var(--accent-soft)}
+  .fieldlist input{margin:0;flex:none}
+  .fieldlist .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fieldlist .tag{margin-left:auto;font-size:11px;color:var(--muted);flex:none}
+  .search{width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:8px;
+    background:var(--panel);color:var(--ink);margin-bottom:8px}
+  select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel);color:var(--ink)}
+
+  /* riquadri file (report rotture) */
+  .slots{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+  @media(max-width:680px){.slots{grid-template-columns:1fr}}
+  .slot{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);padding:12px 14px}
+  .slot .lab{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .slot .fname{margin-top:4px;font-weight:600;word-break:break-all}
+  .slot .meta{color:var(--muted);font-size:12px;margin-top:2px}
+  .slot.empty .fname{color:var(--muted);font-weight:400}
+
+  /* riquadri numerici */
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:680px){.cards{grid-template-columns:repeat(2,1fr)}}
+  .card{border:1px solid var(--line);border-radius:var(--radius);padding:14px;background:var(--bg)}
+  .card .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .card .v{font-size:22px;font-weight:650;margin-top:4px;font-variant-numeric:tabular-nums}
+
+  /* etichette e messaggi */
+  .pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px;
+    background:var(--ok-soft);color:var(--ok)}
+  .meta,.hint{color:var(--muted);font-size:13px}
+  .hint{margin-top:10px;font-size:12px}
+  .msg{border-radius:8px;padding:10px 14px;margin-top:12px;font-size:13px;border:1px solid transparent}
+  .msg.err,.err{background:var(--err-soft);color:var(--err);border-color:var(--err)}
+  .msg.warn{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
+
+  /* tabelle */
+  .tablewrap{margin-top:16px;border:1px solid var(--line);border-radius:var(--radius);
+    overflow:auto;max-height:65vh;background:var(--panel)}
+  table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+  th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{position:sticky;top:0;background:var(--head);z-index:1;font-size:11px;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--muted);font-weight:700}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  td.desc{white-space:normal;min-width:240px}
+  tbody tr:nth-child(even){background:var(--zebra)}
+  tfoot td{position:sticky;bottom:0;background:var(--head);font-weight:700;
+    border-top:2px solid var(--line);border-bottom:none}
+
+  .hidden{display:none}
+  /* ---------- documenti stampabili ---------- */
+  .doc{background:#fff;color:#000;max-width:1180px;margin:20px auto;padding:16px 18px;
+    border:1px solid var(--line);border-radius:var(--radius)}
+  .docmeta{font-size:12px;color:#555;margin-bottom:10px}
+  .block + .block{margin-top:20px}
+  .banner{background:#1f497d;color:#fff;font-weight:700;text-align:center;
+    padding:5px 8px;font-size:13px;font-family:Calibri,Carlito,Arial,sans-serif}
+  table.list{width:100%;border-collapse:collapse;table-layout:fixed;color:#000;
+    font-family:Calibri,Carlito,Arial,sans-serif}
+  .doc table.list th{background:#4472c4;color:#fff;font-size:11px;font-weight:700;
+    text-transform:none;letter-spacing:0;padding:5px 6px;text-align:center;position:static;border:none}
+  .doc table.list td{border-bottom:1px solid #c8c8c8;padding:3px 6px;font-size:12px;
+    vertical-align:middle;white-space:normal;color:#000}
+  .doc table.list tbody tr:nth-child(even){background:#edf2fc}
+  .doc table.list tbody tr:nth-child(odd){background:#fff}
+  .c-ubic{width:25%} .c-art{width:13%;text-align:center} .c-bc{width:34%} .c-desc{width:28%}
+  svg.bc{display:block;width:100%;height:11mm}
+
+  .ctrl-title{text-align:center;font-size:18px;margin:0 0 12px;
+    font-family:Calibri,Carlito,Arial,sans-serif}
+  .ctrl-name{display:flex;gap:10px;align-items:center;font-weight:700;margin:0 auto 16px;
+    max-width:620px;font-size:12px}
+  .ctrl-name input{flex:1;background:#ffffcc;border:none;border-bottom:2px solid #000;
+    font:inherit;font-weight:400;padding:5px 8px;color:#000;border-radius:0}
+  table.ctrl{border-collapse:collapse;margin:0 auto 18px;width:100%;max-width:620px;color:#000;
+    font-family:Calibri,Carlito,Arial,sans-serif}
+  .doc table.ctrl th.title{background:#1f497d;color:#fff;font-size:13px;text-transform:none;
+    letter-spacing:0;padding:6px;text-align:center;position:static;border:none}
+  .doc table.ctrl th{background:#4472c4;color:#fff;font-size:11px;font-weight:700;
+    text-transform:none;letter-spacing:0;padding:5px;text-align:center;position:static;
+    border:1px solid #333}
+  .doc table.ctrl td{border:1px solid #333;text-align:center;font-size:11px;font-weight:700;
+    padding:5px;background:#fff;color:#000;white-space:nowrap}
+  .doc table.ctrl td.off{background:#000;color:#fff}
+  .doc table.ctrl td.spunt{width:110px;background:#fff}
+  .doc table.ctrl .sep{background:#c8c8c8;width:16px;border:none;padding:0}
+
+  /* ---------- stampa ---------- */
+  @media print{
+    @page{size:A4 portrait;margin:10mm 8mm}
+    .topbar,.noprint{display:none !important}
+    body{background:#fff}
+    .doc{display:none;max-width:none;margin:0;padding:0;border:none;border-radius:0}
+    body.printing-list #docList{display:block}
+    body.printing-ctrl #docCtrl{display:block}
+    .block{break-before:page;page-break-before:always}
+    #blocks .block:first-child{break-before:auto;page-break-before:auto}
+    .doc table.list thead{display:table-header-group}
+    .doc tr{break-inside:avoid;page-break-inside:avoid}
+    .banner{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .doc *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+</style>
+</head>
+<body>
+  <div class="topbar"><div class="inner">
+    <a class="brand" href="index.html">Tool Magazzino</a>
+    <nav class="navlinks">
+      <a href="giacenze.html">Aggregatore giacenze</a>
+      <a href="rotture.html">Report rotture / L&amp;F</a>
+      <a href="inventario.html" class="active">Inventario</a>
+    </nav>
+  </div></div>
+
+<div class="wrap noprint">
+  <header>
+    <h1>Inventario</h1>
+    <p>Trascina l'estratto <strong>Giacenza UdC</strong>: ottieni la lista di spunta con i barcode e il foglio di controllo corridoi, pronti da stampare. Tutto avviene nel browser, nessun dato viene caricato online.</p>
+  </header>
+
+  <div id="drop">
+    <strong>Trascina qui il file di giacenza</strong>
+    <span>oppure clicca per selezionarlo — .xlsx, .xlsm, .xls</span>
+    <input type="file" id="file" accept=".xlsx,.xlsm,.xls">
+  </div>
+  <div id="messages"></div>
+
+  <div id="config" class="panel hidden">
+    <h2>Filtri della lista inventario</h2>
+    <div class="meta" id="fileinfo"></div>
+    <div class="btns" style="margin-top:14px">
+      <label style="display:flex;align-items:center;gap:8px">Picking
+        <select id="fPick">
+          <option value="true" selected>solo VERO</option>
+          <option value="false">solo FALSO</option>
+          <option value="all">tutti</option>
+        </select>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;margin-left:6px">Piano da
+        <input id="fPmin" type="number" value="10" style="width:80px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)">
+      </label>
+      <label style="display:flex;align-items:center;gap:8px">a
+        <input id="fPmax" type="number" value="19" style="width:80px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)">
+      </label>
+      <button class="primary" id="run" style="margin-left:auto">Genera</button>
+    </div>
+    <div class="hint">Il foglio di controllo usa tutte le righe del file, divise fra picking e stoccaggio, come nella macro originale: i filtri qui sopra valgono solo per la lista.</div>
+  </div>
+
+  <div id="out" class="panel hidden">
+    <h2>Risultato</h2>
+    <div class="cards">
+      <div class="card"><div class="k">Righe lista</div><div class="v" id="cRighe">0</div></div>
+      <div class="card"><div class="k">Blocchi / pagine</div><div class="v" id="cBloc">0</div></div>
+      <div class="card"><div class="k">Corridoi picking</div><div class="v" id="cPick">0</div></div>
+      <div class="card"><div class="k">Corridoi stoccaggio</div><div class="v" id="cStock">0</div></div>
+    </div>
+    <div class="btns">
+      <button class="primary" id="printList">Stampa lista inventario</button>
+      <button class="primary" id="printCtrl">Stampa foglio di controllo</button>
+      <button id="again">Carica un altro file</button>
+      <label style="display:flex;align-items:center;gap:6px;margin-left:auto">
+        <input type="checkbox" id="showCtrl"> Mostra il foglio di controllo
+      </label>
+    </div>
+    <div class="hint">La stampa esce in A4 verticale, un blocco Scaffale + Lato per pagina. Per il PDF usa “Salva come PDF” nella finestra di stampa del browser.</div>
+  </div>
+</div>
+
+<!-- ============ documenti stampabili ============ -->
+<div id="docList" class="doc hidden">
+  <div class="docmeta">Lista inventario — generata il <span id="genDate"></span></div>
+  <div id="blocks"></div>
+</div>
+
+<div id="docCtrl" class="doc hidden">
+  <h1 class="ctrl-title">INVENTARIO del <span id="ctrlDate"></span></h1>
+  <div class="ctrl-name">
+    <span>NOME INVENTARIO:</span>
+    <input id="invName" type="text" placeholder="">
+  </div>
+  <div id="ctrlTables"></div>
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================
+   Inventario — porting delle macro GeneraInventario e
+   GeneraFoglioControllo del file Inventario_Macro.xlsm
+   ========================================================= */
+
+/* ---------- Code 39 ---------- */
+const C39 = {
+  "0":"nnnwwnwnn","1":"wnnwnnnnw","2":"nnwwnnnnw","3":"wnwwnnnnn","4":"nnnwwnnnw",
+  "5":"wnnwwnnnn","6":"nnwwwnnnn","7":"nnnwnnwnw","8":"wnnwnnwnn","9":"nnwwnnwnn",
+  "A":"wnnnnwnnw","B":"nnwnnwnnw","C":"wnwnnwnnn","D":"nnnnwwnnw","E":"wnnnwwnnn",
+  "F":"nnwnwwnnn","G":"nnnnnwwnw","H":"wnnnnwwnn","I":"nnwnnwwnn","J":"nnnnwwwnn",
+  "K":"wnnnnnnww","L":"nnwnnnnww","M":"wnwnnnnwn","N":"nnnnwnnww","O":"wnnnwnnwn",
+  "P":"nnwnwnnwn","Q":"nnnnnnwww","R":"wnnnnnwwn","S":"nnwnnnwwn","T":"nnnnwnwwn",
+  "U":"wwnnnnnnw","V":"nwwnnnnnw","W":"wwwnnnnnn","X":"nwnnwnnnw","Y":"wwnnwnnnn",
+  "Z":"nwwnwnnnn","-":"nwnnnnwnw",".":"wwnnnnwnn"," ":"nwwnnnwnn","$":"nwnwnwnnn",
+  "/":"nwnwnnnwn","+":"nwnnnwnwn","%":"nnnwnwnwn","*":"nwnnwnwnn"
+};
+
+/* SVG del barcode Code 39 di un codice (start/stop * inclusi) */
+function barcodeSvg(code){
+  const text = "*" + String(code).toUpperCase().replace(/[^0-9A-Z\-. $\/+%]/g,"") + "*";
+  const NARROW = 1, WIDE = 3, GAP = 1, H = 100;
+  let x = 0, bars = "";
+  for(let i = 0; i < text.length; i++){
+    const pat = C39[text[i]];
+    if(!pat) continue;
+    for(let j = 0; j < 9; j++){
+      const w = pat[j] === "w" ? WIDE : NARROW;
+      if(j % 2 === 0) bars += `<rect x="${x}" y="0" width="${w}" height="${H}"/>`;
+      x += w;
+    }
+    x += GAP;
+  }
+  const total = Math.max(x - GAP, 1);
+  return `<svg class="bc" viewBox="0 0 ${total} ${H}" preserveAspectRatio="none" `
+       + `xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">`
+       + `<g fill="#000">${bars}</g></svg>`;
+}
+
+/* ---------- utility ---------- */
+const $ = id => document.getElementById(id);
+const norm = s => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+                  .replace(/\s+/g," ").trim().toLowerCase();
+const pad = (v,n) => String(v).padStart(n,"0");
+
+function msg(text, kind){
+  const d = document.createElement("div");
+  d.className = "msg " + (kind || "warn");
+  d.textContent = text;
+  $("messages").appendChild(d);
+}
+function clearMsg(){ $("messages").innerHTML = ""; }
+
+/* Picking come nella macro: booleano, "TRUE"/"VERO", oppure 1/-1 */
+function isPicking(v){
+  if(typeof v === "boolean") return v;
+  if(typeof v === "string"){ const s = v.trim().toUpperCase(); return s === "TRUE" || s === "VERO"; }
+  return v === 1 || v === -1;
+}
+function toInt(v){
+  if(v === null || v === undefined || v === "") return 0;
+  const n = parseInt(String(v).trim(), 10);
+  return isNaN(n) ? 0 : n;
+}
+/* Lato dalla campata: (campata \ 10) mod 2 == 0 -> DX, altrimenti SX */
+function latoDaCampata(campata){
+  return (Math.trunc(campata / 10) % 2 === 0) ? "DX" : "SX";
+}
+function oggi(){
+  const d = new Date();
+  return pad(d.getDate(),2) + "/" + pad(d.getMonth()+1,2) + "/" + d.getFullYear();
+}
+function oraGen(){
+  const d = new Date();
+  return oggi() + " " + pad(d.getHours(),2) + ":" + pad(d.getMinutes(),2);
+}
+
+/* ---------- stato ---------- */
+let RECORDS = [];   // tutte le righe utili del file
+let FNAME = "";
+
+/* ---------- lettura file ---------- */
+$("drop").addEventListener("click", () => $("file").click());
+$("file").addEventListener("change", e => { if(e.target.files[0]) load(e.target.files[0]); });
+["dragenter","dragover"].forEach(ev =>
+  $("drop").addEventListener(ev, e => { e.preventDefault(); $("drop").classList.add("over"); }));
+["dragleave","drop"].forEach(ev =>
+  $("drop").addEventListener(ev, e => { e.preventDefault(); $("drop").classList.remove("over"); }));
+$("drop").addEventListener("drop", e => { if(e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); });
+window.addEventListener("dragover", e => e.preventDefault());
+window.addEventListener("drop", e => e.preventDefault());
+
+const WANT = {
+  pick: ["picking"],
+  art:  ["articolo"],
+  desc: ["descrizione articolo"],
+  ubic: ["ubicazione corrente"],
+  scaf: ["scaffale"],
+  camp: ["campata"],
+  pian: ["piano"]
+};
+
+/* riga di intestazione: quella con più nomi attesi nelle prime 30 righe (default riga 4) */
+function findHeaderRow(aoa){
+  let best = -1, bestScore = 0;
+  const names = [].concat.apply([], Object.keys(WANT).map(k => WANT[k]));
+  for(let i = 0; i < Math.min(aoa.length, 30); i++){
+    const set = new Set((aoa[i] || []).map(norm));
+    let sc = 0;
+    names.forEach(n => { if(set.has(n)) sc++; });
+    if(sc > bestScore){ bestScore = sc; best = i; }
+  }
+  return best >= 0 ? best : 3;
+}
+
+function load(file){
+  clearMsg();
+  FNAME = file.name;
+  const fr = new FileReader();
+  fr.onload = ev => {
+    try{
+      const wb = XLSX.read(new Uint8Array(ev.target.result), {type:"array"});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, blankrows:true, raw:true});
+      parse(aoa, wb.SheetNames[0]);
+    }catch(err){
+      msg("Non riesco a leggere il file: " + err.message, "err");
+    }
+  };
+  fr.onerror = () => msg("Errore di lettura del file.", "err");
+  fr.readAsArrayBuffer(file);
+}
+
+function parse(aoa, sheetName){
+  const h = findHeaderRow(aoa);
+  const header = (aoa[h] || []).map(norm);
+  const idx = {};
+  Object.keys(WANT).forEach(k => {
+    idx[k] = -1;
+    for(let c = 0; c < header.length; c++){
+      if(WANT[k].indexOf(header[c]) > -1){ idx[k] = c; break; }   // primo "Articolo", non "Codice Articolo"
+    }
+  });
+
+  const missing = Object.keys(idx).filter(k => idx[k] < 0);
+  if(missing.length){
+    msg("Nel file mancano queste colonne attese alla riga di intestazione: " + missing.join(", ")
+        + ". Serve l'estratto Giacenza UdC completo.", "err");
+    return;
+  }
+
+  RECORDS = [];
+  for(let i = h + 1; i < aoa.length; i++){
+    const r = aoa[i];
+    if(!r) continue;
+    const scaf = String(r[idx.scaf] ?? "").trim();
+    if(scaf === "") continue;
+    const camp = toInt(r[idx.camp]);
+    RECORDS.push({
+      scaf: scaf,
+      scafN: toInt(scaf),
+      camp: camp,
+      pian: toInt(r[idx.pian]),
+      lato: latoDaCampata(camp),
+      ubic: String(r[idx.ubic] ?? "").trim(),
+      art:  String(r[idx.art]  ?? "").trim(),
+      desc: String(r[idx.desc] ?? "").trim(),
+      pick: isPicking(r[idx.pick])
+    });
+  }
+
+  if(!RECORDS.length){ msg("Non ho trovato righe con uno scaffale valido.", "err"); return; }
+
+  const nPick = RECORDS.filter(r => r.pick).length;
+  $("fileinfo").innerHTML =
+      `<span class="pill">${RECORDS.length.toLocaleString("it-IT")} righe</span> `
+    + `<span class="pill">${nPick.toLocaleString("it-IT")} in picking</span> `
+    + `&nbsp;${FNAME} — foglio “${sheetName}”, intestazione alla riga ${h+1}`;
+  $("config").classList.remove("hidden");
+  build();
+}
+
+/* ---------- generazione ---------- */
+$("run").addEventListener("click", build);
+$("again").addEventListener("click", () => {
+  RECORDS = []; clearMsg();
+  $("config").classList.add("hidden"); $("out").classList.add("hidden");
+  $("docList").classList.add("hidden"); $("docCtrl").classList.add("hidden");
+  $("file").value = ""; window.scrollTo({top:0,behavior:"smooth"});
+});
+$("showCtrl").addEventListener("change", e => {
+  $("docCtrl").classList.toggle("hidden", !e.target.checked);
+});
+
+function build(){
+  if(!RECORDS.length) return;
+  const mode = $("fPick").value;
+  const pmin = toInt($("fPmin").value);
+  const pmax = toInt($("fPmax").value);
+
+  const list = RECORDS.filter(r => {
+    if(mode === "true"  && !r.pick) return false;
+    if(mode === "false" &&  r.pick) return false;
+    return r.pian >= pmin && r.pian <= pmax;
+  });
+
+  // ordinamento della macro: Scaffale, Lato, Campata, Piano
+  const key = r => pad(r.scafN,6) + r.lato + pad(r.camp,6) + pad(r.pian,3);
+  list.sort((a,b) => key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0);
+
+  renderList(list);
+  const ctrl = renderCtrl();
+
+  $("cRighe").textContent = list.length.toLocaleString("it-IT");
+  $("cBloc").textContent  = String(document.querySelectorAll("#blocks .block").length);
+  $("cPick").textContent  = String(ctrl.nP);
+  $("cStock").textContent = String(ctrl.nS);
+  $("out").classList.remove("hidden");
+  $("docList").classList.toggle("hidden", list.length === 0);
+  if(!list.length) msg("Nessuna riga soddisfa i filtri impostati.", "warn");
+}
+
+/* --- lista inventario: un blocco per Scaffale + Lato, uno per pagina --- */
+function renderList(list){
+  $("genDate").textContent = oraGen();
+  const host = $("blocks");
+  host.innerHTML = "";
+  let cur = null, tbody = null;
+
+  list.forEach(r => {
+    const k = r.scaf + "|" + r.lato;
+    if(k !== cur){
+      cur = k;
+      const sec = document.createElement("section");
+      sec.className = "block";
+      sec.innerHTML =
+        `<div class="banner">Scaffale ${r.scaf}&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;Lato ${r.lato}</div>`
+      + `<table class="list"><thead><tr>`
+      + `<th class="c-ubic">Ubicazione Corrente</th><th class="c-art">Articolo</th>`
+      + `<th class="c-bc">Barcode</th><th class="c-desc">Descrizione Articolo</th>`
+      + `</tr></thead><tbody></tbody></table>`;
+      host.appendChild(sec);
+      tbody = sec.querySelector("tbody");
+    }
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="c-ubic">${esc(r.ubic)}</td>`
+                 + `<td class="c-art">${esc(r.art)}</td>`
+                 + `<td class="c-bc">${barcodeSvg(r.art)}</td>`
+                 + `<td class="c-desc">${esc(r.desc)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function esc(s){ return String(s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+/* --- foglio di controllo: corridoi picking e stoccaggio, SX a sinistra e DX a destra --- */
+function renderCtrl(){
+  const collect = pick => {
+    const m = new Map();
+    RECORDS.forEach(r => {
+      if(r.pick !== pick) return;
+      if(r.camp === 0) return;
+      let e = m.get(r.scaf);
+      if(!e){ e = {scaf:r.scaf, n:r.scafN, sx:false, dx:false}; m.set(r.scaf, e); }
+      if(r.lato === "SX") e.sx = true; else e.dx = true;
+    });
+    return [...m.values()].sort((a,b) => a.n - b.n);
+  };
+  const P = collect(true), S = collect(false);
+
+  $("ctrlDate").textContent = oggi();
+  $("ctrlTables").innerHTML = tabellaCtrl("ZONA PICKING", P) + tabellaCtrl("ZONA STOCCAGGIO", S);
+  return {nP:P.length, nS:S.length};
+}
+
+function tabellaCtrl(titolo, arr){
+  if(!arr.length) return "";
+  const cell = (val, ok) => `<td class="${ok ? "" : "off"}">${esc(val)}</td>`;
+  const rows = arr.map(e =>
+      `<tr>${cell(e.scaf, e.sx)}${cell("SX", e.sx)}<td class="spunt"></td>`
+    + `<td class="sep"></td>`
+    + `${cell(e.scaf, e.dx)}${cell("DX", e.dx)}<td class="spunt"></td></tr>`).join("");
+  return `<table class="ctrl"><thead>`
+       + `<tr><th class="title" colspan="7">${esc(titolo)}</th></tr>`
+       + `<tr><th>Corridoio</th><th>Lato</th><th>Spuntatore</th><th class="sep"></th>`
+       + `<th>Corridoio</th><th>Lato</th><th>Spuntatore</th></tr>`
+       + `</thead><tbody>${rows}</tbody></table>`;
+}
+
+/* ---------- stampa ---------- */
+function stampa(which){
+  document.body.classList.add("printing-" + which);
+  const after = () => {
+    document.body.classList.remove("printing-list", "printing-ctrl");
+    window.removeEventListener("afterprint", after);
+  };
+  window.addEventListener("afterprint", after);
+  setTimeout(() => { window.print(); setTimeout(after, 1000); }, 60);
+}
+$("printList").addEventListener("click", () => stampa("list"));
+$("printCtrl").addEventListener("click", () => stampa("ctrl"));
+
+if(typeof XLSX === "undefined"){
+  msg("Non riesco a caricare la libreria di lettura Excel da cdnjs.cloudflare.com. Se la rete la blocca, "
+    + "scarica xlsx.full.min.js, mettilo nella stessa cartella di questa pagina e cambia il src dello script "
+    + "in \"xlsx.full.min.js\".", "err");
+  $("drop").style.pointerEvents = "none";
+  $("drop").style.opacity = ".5";
+}
+</script>
+</body>
+</html>
