@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spacchetta borderò</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#15181d; --muted:#6b7280;
+    --line:#e3e6ea; --accent:#1f6feb; --accent-soft:#e8f0fe;
+    --ok:#0f7b45; --ok-soft:#e6f4ec;
+    --warn:#8a5a00; --warn-soft:#fff5e0;
+    --err:#b42318; --err-soft:#fdeceb;
+    --head:#f7f8fa; --zebra:#fbfcfd;
+    --radius:10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1216; --panel:#171b21; --ink:#e8eaed; --muted:#9aa3af;
+      --line:#282e37; --accent:#4c8dff; --accent-soft:#1b2740;
+      --ok:#4ade80; --ok-soft:#14301f;
+      --warn:#fbbf24; --warn-soft:#33260c;
+      --err:#fca5a5; --err-soft:#3a1614;
+      --head:#1d222a; --zebra:#1b2028;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;}
+
+  /* barra di navigazione */
+  .topbar{background:var(--panel);border-bottom:1px solid var(--line)}
+  .topbar .inner{max-width:1180px;margin:0 auto;padding:0 20px;display:flex;align-items:center;
+    gap:18px;height:52px;flex-wrap:wrap}
+  .brand{font-weight:700;letter-spacing:-.01em;color:var(--ink);text-decoration:none;white-space:nowrap}
+  .brand span{color:var(--muted);font-weight:400}
+  .navlinks{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+  .navlinks a{color:var(--muted);text-decoration:none;padding:6px 12px;border-radius:8px;white-space:nowrap}
+  .navlinks a:hover{background:var(--accent-soft);color:var(--ink)}
+  .navlinks a.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 64px}
+  header h1{margin:0 0 4px;font-size:22px;letter-spacing:-.01em}
+  header p{margin:0 0 4px;color:var(--muted);max-width:78ch}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px;margin-top:20px}
+  .panel h2{margin:0 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+
+  /* dropzone */
+  #drop{border:2px dashed var(--line);border-radius:var(--radius);background:var(--panel);
+    padding:40px 20px;text-align:center;cursor:pointer;transition:.15s;margin-top:20px}
+  #drop:hover,#drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  #drop strong,#drop .big{display:block;font-size:15px;font-weight:600;margin-bottom:4px}
+  #drop span,#drop .small{color:var(--muted);font-size:13px}
+  input[type=file]{display:none}
+
+  /* pulsanti */
+  button{font:inherit;border-radius:8px;border:1px solid var(--line);background:var(--panel);
+    color:var(--ink);padding:8px 14px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.primary:hover{filter:brightness(1.08)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  button:disabled:hover{border-color:var(--line)}
+  .btns,.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+
+  /* liste campi con checkbox */
+  .row{display:flex;gap:16px;flex-wrap:wrap}
+  .col{flex:1 1 320px;min-width:280px}
+  .fieldlist{border:1px solid var(--line);border-radius:8px;max-height:300px;overflow:auto;background:var(--bg)}
+  .fieldlist label{display:flex;align-items:center;gap:8px;padding:6px 10px;
+    border-bottom:1px solid var(--line);cursor:pointer}
+  .fieldlist label:last-child{border-bottom:none}
+  .fieldlist label:hover{background:var(--accent-soft)}
+  .fieldlist input{margin:0;flex:none}
+  .fieldlist .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fieldlist .tag{margin-left:auto;font-size:11px;color:var(--muted);flex:none}
+  .search{width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:8px;
+    background:var(--panel);color:var(--ink);margin-bottom:8px}
+  select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel);color:var(--ink)}
+
+  /* riquadri file (report rotture) */
+  .slots{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+  @media(max-width:680px){.slots{grid-template-columns:1fr}}
+  .slot{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);padding:12px 14px}
+  .slot .lab{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .slot .fname{margin-top:4px;font-weight:600;word-break:break-all}
+  .slot .meta{color:var(--muted);font-size:12px;margin-top:2px}
+  .slot.empty .fname{color:var(--muted);font-weight:400}
+
+  /* riquadri numerici */
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:680px){.cards{grid-template-columns:repeat(2,1fr)}}
+  .card{border:1px solid var(--line);border-radius:var(--radius);padding:14px;background:var(--bg)}
+  .card .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .card .v{font-size:22px;font-weight:650;margin-top:4px;font-variant-numeric:tabular-nums}
+
+  /* etichette e messaggi */
+  .pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px;
+    background:var(--ok-soft);color:var(--ok)}
+  .meta,.hint{color:var(--muted);font-size:13px}
+  .hint{margin-top:10px;font-size:12px}
+  .msg{border-radius:8px;padding:10px 14px;margin-top:12px;font-size:13px;border:1px solid transparent}
+  .msg.err,.err{background:var(--err-soft);color:var(--err);border-color:var(--err)}
+  .msg.warn{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
+
+  /* tabelle */
+  .tablewrap{margin-top:16px;border:1px solid var(--line);border-radius:var(--radius);
+    overflow:auto;max-height:65vh;background:var(--panel)}
+  table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+  th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{position:sticky;top:0;background:var(--head);z-index:1;font-size:11px;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--muted);font-weight:700}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  td.desc{white-space:normal;min-width:240px}
+  tbody tr:nth-child(even){background:var(--zebra)}
+  tfoot td{position:sticky;bottom:0;background:var(--head);font-weight:700;
+    border-top:2px solid var(--line);border-bottom:none}
+
+  .hidden{display:none}
+  /* barra di avanzamento e registro */
+  .progress{height:8px;background:var(--bg);border:1px solid var(--line);border-radius:99px;
+    overflow:hidden;margin-top:12px}
+  .progress > div{height:100%;width:0;background:var(--accent);transition:width .2s}
+  pre#log{margin:8px 0 0;padding:12px;background:#12151a;color:#dfe3e8;border-radius:8px;
+    max-height:360px;overflow:auto;font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;
+    white-space:pre-wrap;word-break:break-word}
+  #downloads button{font-size:13px}
+  #filelist .slot:last-child{margin-bottom:0 !important}
+</style>
+</head>
+<body>
+  <div class="topbar"><div class="inner">
+    <a class="brand" href="index.html">Tool Magazzino</a>
+    <nav class="navlinks">
+      <a href="giacenze.html">Aggregatore giacenze</a>
+      <a href="rotture.html">Report rotture / L&amp;F</a>
+      <a href="inventario.html">Inventario</a>
+      <a href="bordero.html" class="active">Borderò</a>
+    </nav>
+  </div></div>
+
+<div class="wrap">
+  <header>
+    <h1>Spacchetta borderò</h1>
+    <p>Trascina i PDF scansionati dei borderò di carico: ogni coppia <strong>azienda + viaggio</strong> diventa un PDF a sé, con gli allegati che seguono. L'OCR gira nel browser, i file non vengono caricati da nessuna parte.</p>
+  </header>
+
+  <div id="drop">
+    <strong>Trascina qui i PDF</strong>
+    <span>oppure clicca per selezionarli — anche più file insieme</span>
+    <input type="file" id="file" accept=".pdf" multiple>
+  </div>
+
+  <div id="files" class="panel hidden">
+    <h2>File da elaborare</h2>
+    <div id="filelist"></div>
+  </div>
+
+  <div id="messages"></div>
+
+  <div class="panel">
+    <h2>Opzioni</h2>
+    <div class="btns" style="margin-top:0">
+      <label style="display:flex;align-items:center;gap:8px">Magazzino di partenza
+        <input id="oMag" type="text" value="3980" style="width:110px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)">
+      </label>
+      <label style="display:flex;align-items:center;gap:8px">nome
+        <input id="oMagNome" type="text" value="SETTALA" style="width:130px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)">
+      </label>
+      <span class="hint" style="margin:0">“any” accetta qualsiasi magazzino</span>
+    </div>
+    <div class="btns">
+      <label style="display:flex;align-items:center;gap:8px">Se il magazzino non è leggibile
+        <select id="oUnknown">
+          <option value="bordero" selected>trattalo come borderò</option>
+          <option value="allegato">trattalo come allegato</option>
+        </select>
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;margin-left:8px">
+        <input type="checkbox" id="oFix" checked> Correggi i numeri viaggio isolati
+      </label>
+      <label style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="oOcr"> Livello testo OCR nei PDF generati
+      </label>
+      <label style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="oMerge"> Unisci pacchetti fra file diversi
+      </label>
+    </div>
+    <div class="hint">Il livello testo rende i PDF ricercabili ma è lento: conta qualche secondo per pagina. Senza, lo spacchettamento resta rapido e le scansioni restano identiche all'originale.</div>
+    <div class="btns">
+      <button class="primary" id="run" disabled>Analizza</button>
+      <button id="reset">Svuota elenco</button>
+      <span id="diag" class="hint" style="margin-left:auto"></span>
+    </div>
+    <div id="bar" class="progress hidden"><div id="barfill"></div></div>
+    <div class="meta" id="stato"></div>
+  </div>
+
+  <div id="result" class="panel hidden">
+    <h2>Pacchetti individuati</h2>
+    <div class="cards">
+      <div class="card"><div class="k">Pagine</div><div class="v" id="cPag">0</div></div>
+      <div class="card"><div class="k">Borderò</div><div class="v" id="cBord">0</div></div>
+      <div class="card"><div class="k">Pacchetti</div><div class="v" id="cPack">0</div></div>
+      <div class="card"><div class="k">Non assegnate</div><div class="v" id="cOrf">0</div></div>
+    </div>
+    <div class="btns">
+      <button class="primary" id="gen">Genera i PDF</button>
+      <button id="csv">Scarica la mappa CSV</button>
+    </div>
+    <div class="tablewrap" style="max-height:340px"><table id="tPack"></table></div>
+    <div id="downloads" class="btns"></div>
+  </div>
+
+  <div id="logbox" class="panel hidden">
+    <h2>Registro</h2>
+    <div class="btns" style="margin-top:0">
+      <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="oVerbose" checked> Registro dettagliato pagina per pagina</label>
+      <div id="crop" style="margin-left:auto"></div>
+    </div>
+    <pre id="log"></pre>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================
+   Spacchetta borderò — porting nel browser di split_bordero.py
+   pdf.js (rendering) + Tesseract.js (OCR) + pdf-lib (scrittura)
+   ========================================================= */
+
+const $ = id => document.getElementById(id);
+
+/* ---------- parametri, come nello script Python ---------- */
+const HEADER_BOX = [0.00, 0.00, 0.62, 0.28];   // sinistra, alto, destra, basso
+const DETECT_DPI = 300;
+const VOTE_VARIANTS = [[300,6,0],[400,6,0],[400,11,0],[400,6,-1],[400,6,1],[350,4,0]];
+const OCR_DPI = 300;                            // rasterizzazione per il livello testo
+
+const RE_BORDERO       = /BORDER\w{0,3}['’‘"]?\s*DI\s*CARICO/i;
+const RE_PER_ORDINE    = /PER\s+ORDINE/i;
+const RE_TRASPORTATORE = /Trasport\w*/i;
+const RE_VIAGGIO       = /Viagg\w{0,3}\s*[:.;]?\s*[^\dA-Za-z\n]{0,8}(\d{4,8})/;
+const RE_AZIENDA       = /Az\w{4,8}\s*[:.;]?\s*[^\dA-Za-z\n]{0,8}(\d{2,6})/;
+const RE_DEPOT         = /(\d{3,5})\s*[-–—.,:]?\s*(?=[A-Za-z])/g;
+const RE_VIAGGIO_POS   = /Viagg/i;
+
+let CFG = { codes:new Set(["3980"]), names:new Set(["SETTALA"]), anyDepot:false,
+            unknownAsBordero:true, fixViaggio:true, ocr:false, verbose:true, merge:false };
+
+/* ---------- log ---------- */
+function log(s){
+  const el = $("log");
+  el.textContent += s + "\n";
+  el.scrollTop = el.scrollHeight;
+  $("logbox").classList.remove("hidden");
+}
+function msg(text, kind){
+  const d = document.createElement("div");
+  d.className = "msg " + (kind || "warn");
+  d.textContent = text;
+  $("messages").appendChild(d);
+}
+function stato(s){ $("stato").textContent = s; }
+function bar(done, total){
+  const b = $("bar");
+  if(total <= 0){ b.classList.add("hidden"); return; }
+  b.classList.remove("hidden");
+  $("barfill").style.width = Math.round(100 * done / total) + "%";
+}
+
+/* ---------- parsing della testata (logica identica allo script) ---------- */
+function extractDepot(text){
+  const m = RE_VIAGGIO_POS.exec(text);
+  const head = m ? text.slice(0, m.index) : text;
+  const codes = [...head.matchAll(RE_DEPOT)].map(x => x[1]);
+  const code = codes.length ? codes[codes.length - 1] : null;   // la riga più vicina a "Viaggio:"
+  const up = head.toUpperCase();
+  const nameHit = [...CFG.names].some(n => n && up.includes(n));
+  return {code, nameHit};
+}
+
+function parseHeader(text){
+  const mv = RE_VIAGGIO.exec(text);
+  const ma = RE_AZIENDA.exec(text);
+  const marker = RE_BORDERO.test(text) || RE_PER_ORDINE.test(text) || RE_TRASPORTATORE.test(text);
+  const viaggio = mv ? mv[1] : null;
+  const azienda = ma ? ma[1] : null;
+  const isBord = marker && viaggio !== null && azienda !== null;
+  const {code, nameHit} = extractDepot(text);
+  const isHome = CFG.anyDepot || (code !== null && CFG.codes.has(code)) || nameHit;
+  return {isBord, azienda, viaggio, depot:code, isHome};
+}
+
+function hamming1(a, b){
+  if(a.length !== b.length) return false;
+  let d = 0;
+  for(let i = 0; i < a.length; i++) if(a[i] !== b[i]) d++;
+  return d === 1;
+}
+
+/* Corregge un viaggio isolato che differisce di una cifra da uno molto più frequente */
+function fixViaggioTypos(rows){
+  const counts = new Map();
+  rows.forEach(r => { if(r.isBordero && r.viaggio) counts.set(r.viaggio, (counts.get(r.viaggio)||0)+1); });
+  if(counts.size < 2) return rows;
+  const ordered = [...counts.entries()].sort((a,b) => b[1]-a[1]);
+  return rows.map(r => {
+    if(r.isBordero && r.viaggio && counts.get(r.viaggio) === 1){
+      for(const [cand, c] of ordered){
+        if(c >= 2 && hamming1(cand, r.viaggio)){
+          log(`  [correzione] ${r.file} pag ${r.page}: viaggio ${r.viaggio} -> ${cand} `
+            + `(valore isolato, ${c} occorrenze dell'alternativa)`);
+          return {...r, viaggio:cand};
+        }
+      }
+    }
+    return r;
+  });
+}
+
+/* Assegna ogni pagina al borderò aperto in quel momento.
+   merge=false -> ogni file di input fa storia a sé, come lo script Python.
+   merge=true  -> stessa azienda+viaggio in file diversi finisce in un unico PDF. */
+function buildPackets(rows, merge){
+  const packets = new Map();   // chiave -> {az, vg, rows}
+  const orphans = [];
+  let current = null, lastFile = null;
+  rows.forEach(r => {
+    if(!merge && r.fileIdx !== lastFile){ current = null; lastFile = r.fileIdx; }
+    if(r.isBordero && r.azienda && r.viaggio){
+      const key = (merge ? "" : r.fileIdx + "|") + r.azienda + "|" + r.viaggio;
+      current = key;
+      if(!packets.has(key)) packets.set(key, {az:r.azienda, vg:r.viaggio, rows:[]});
+    }
+    if(current === null) orphans.push(r);
+    else packets.get(current).rows.push(r);
+  });
+  return {packets, orphans};
+}
+
+/* ---------- rendering della testata con pdf.js ---------- */
+async function renderHeader(page, dpi, rotDeg){
+  const scale = dpi / 72;
+  const vp = page.getViewport({scale});
+  const x0 = Math.floor(vp.width  * HEADER_BOX[0]);
+  const y0 = Math.floor(vp.height * HEADER_BOX[1]);
+  const w  = Math.ceil(vp.width  * (HEADER_BOX[2] - HEADER_BOX[0]));
+  const h  = Math.ceil(vp.height * (HEADER_BOX[3] - HEADER_BOX[1]));
+
+  const cv = document.createElement("canvas");
+  cv.width = w; cv.height = h;
+  const ctx = cv.getContext("2d", {willReadFrequently:false});
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
+  await page.render({canvasContext:ctx, viewport:vp, transform:[1,0,0,1,-x0,-y0]}).promise;
+
+  if(!rotDeg) return cv;
+  const cv2 = document.createElement("canvas");
+  cv2.width = w; cv2.height = h;
+  const c2 = cv2.getContext("2d");
+  c2.fillStyle = "#fff"; c2.fillRect(0, 0, w, h);
+  c2.translate(w/2, h/2); c2.rotate(rotDeg * Math.PI / 180); c2.translate(-w/2, -h/2);
+  c2.drawImage(cv, 0, 0);
+  return cv2;
+}
+
+async function renderFull(page, dpi){
+  const vp = page.getViewport({scale: dpi / 72});
+  const cv = document.createElement("canvas");
+  cv.width = Math.ceil(vp.width); cv.height = Math.ceil(vp.height);
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);
+  await page.render({canvasContext:ctx, viewport:vp}).promise;
+  return cv;
+}
+
+/* ---------- OCR ---------- */
+let WORKER = null, LANG = "ita+eng";
+
+async function getWorker(){
+  if(WORKER) return WORKER;
+  stato("preparo l'OCR (al primo avvio scarica i dati lingua, può richiedere un minuto)…");
+  try{
+    WORKER = await Tesseract.createWorker(LANG, 1, {logger:() => {}});
+  }catch(e){
+    log("  [avviso] dati lingua italiana non disponibili: uso solo l'inglese (" + e.message + ")");
+    LANG = "eng";
+    WORKER = await Tesseract.createWorker("eng", 1, {logger:() => {}});
+  }
+  return WORKER;
+}
+
+async function ocrText(canvas, psm){
+  const w = await getWorker();
+  await w.setParameters({tessedit_pageseg_mode: String(psm)});
+  const r = await w.recognize(canvas);
+  return r.data.text || "";
+}
+
+async function ocrWords(canvas){
+  const w = await getWorker();
+  await w.setParameters({tessedit_pageseg_mode: "1"});
+  const r = await w.recognize(canvas, {}, {blocks:true, text:false});
+  const out = [];
+  const push = word => {
+    const t = (word.text || "").trim();
+    if(!t || word.confidence < 0) return;
+    const b = word.bbox;
+    out.push({text:t, x0:b.x0, y0:b.y0, x1:b.x1, y1:b.y1});
+  };
+  const data = r.data;
+  if(data.words && data.words.length) data.words.forEach(push);
+  else if(data.blocks){
+    data.blocks.forEach(bl => (bl.paragraphs||[]).forEach(p =>
+      (p.lines||[]).forEach(l => (l.words||[]).forEach(push))));
+  }
+  return out;
+}
+
+/* voto di maggioranza sulle cifre, come vote_header() dello script */
+async function voteHeader(page){
+  const az = new Map(), vg = new Map(), dp = new Map(), home = new Map();
+  const cache = new Map();
+  const bump = (m, k) => { if(k !== null && k !== undefined) m.set(k, (m.get(k)||0)+1); };
+  for(const [dpi, psm, rot] of VOTE_VARIANTS){
+    let cv;
+    if(rot){ cv = await renderHeader(page, dpi, rot); }
+    else{
+      if(!cache.has(dpi)) cache.set(dpi, await renderHeader(page, dpi, 0));
+      cv = cache.get(dpi);
+    }
+    const p = parseHeader(await ocrText(cv, psm));
+    bump(az, p.azienda); bump(vg, p.viaggio); bump(dp, p.depot); bump(home, p.isHome);
+  }
+  const top = m => m.size ? [...m.entries()].sort((a,b) => b[1]-a[1])[0][0] : null;
+  const obj = m => Object.fromEntries(m);
+  return {az:top(az), vg:top(vg), dp:top(dp), home:top(home) === true,
+          azv:obj(az), vgv:obj(vg), dpv:obj(dp)};
+}
+
+/* ---------- stato ---------- */
+let FILES = [];      // {file, name, doc(pdfjs), pdfBytes}
+let ROWS = [];       // {file, fileIdx, page, azienda, viaggio, isBordero, depot, isHome}
+let PACKETS = null;
+let OUTPUTS = [];    // {name, blob}
+
+/* ---------- caricamento file ---------- */
+$("drop").addEventListener("click", () => $("file").click());
+$("file").addEventListener("change", e => addFiles(e.target.files));
+["dragenter","dragover"].forEach(ev =>
+  $("drop").addEventListener(ev, e => { e.preventDefault(); $("drop").classList.add("over"); }));
+["dragleave","drop"].forEach(ev =>
+  $("drop").addEventListener(ev, e => { e.preventDefault(); $("drop").classList.remove("over"); }));
+$("drop").addEventListener("drop", e => addFiles(e.dataTransfer.files));
+window.addEventListener("dragover", e => e.preventDefault());
+window.addEventListener("drop", e => e.preventDefault());
+
+function addFiles(list){
+  [...list].filter(f => /\.pdf$/i.test(f.name)).forEach(f => {
+    if(!FILES.some(x => x.name === f.name && x.file.size === f.size)) FILES.push({file:f, name:f.name});
+  });
+  renderFiles();
+}
+function renderFiles(){
+  $("files").classList.toggle("hidden", !FILES.length);
+  $("run").disabled = !FILES.length;
+  $("filelist").innerHTML = FILES.map((f,i) =>
+    `<div class="slot" style="margin-bottom:8px"><div class="fname">${f.name}</div>`
+  + `<div class="meta">${(f.file.size/1048576).toFixed(1)} MB<span id="fp${i}"></span></div></div>`).join("");
+}
+$("reset").addEventListener("click", () => {
+  FILES = []; ROWS = []; PACKETS = null; OUTPUTS = [];
+  $("messages").innerHTML = ""; $("log").textContent = "";
+  $("result").classList.add("hidden"); $("logbox").classList.add("hidden");
+  $("downloads").innerHTML = ""; $("file").value = ""; bar(0,0); stato("");
+  renderFiles();
+});
+
+/* ---------- analisi ---------- */
+function readCfg(){
+  const mag = $("oMag").value.trim();
+  CFG.anyDepot = mag.toLowerCase() === "any";
+  CFG.codes = CFG.anyDepot ? new Set() : new Set(mag.split(",").map(s => s.trim()).filter(Boolean));
+  const nome = $("oMagNome").value.trim().toUpperCase();
+  CFG.names = (CFG.anyDepot || !nome) ? new Set() : new Set([nome]);
+  CFG.unknownAsBordero = $("oUnknown").value === "bordero";
+  CFG.fixViaggio = $("oFix").checked;
+  CFG.ocr = $("oOcr").checked;
+  CFG.verbose = $("oVerbose").checked;
+  CFG.merge = $("oMerge").checked;
+}
+
+$("run").addEventListener("click", analizza);
+
+async function analizza(){
+  if(!libsOk()) return;
+  readCfg();
+  $("run").disabled = true;
+  $("result").classList.add("hidden");
+  $("downloads").innerHTML = "";
+  $("log").textContent = "";
+  OUTPUTS = []; ROWS = [];
+  log(`magazzino di partenza: ${CFG.anyDepot ? "qualsiasi" : [...CFG.codes].join(", ")}`
+    + (CFG.names.size ? " / nome " + [...CFG.names].join(", ") : ""));
+
+  const t0 = performance.now();
+  let totPages = 0;
+  try{
+    for(let fi = 0; fi < FILES.length; fi++){
+      const f = FILES[fi];
+      const bytes = new Uint8Array(await f.file.arrayBuffer());
+      f.bytes = bytes;
+      const doc = await pdfjsLib.getDocument({data:bytes.slice()}).promise;
+      f.pages = doc.numPages;
+      totPages += doc.numPages;
+      log(`\n=== ${f.name} — ${doc.numPages} pagine ===`);
+
+      for(let i = 1; i <= doc.numPages; i++){
+        stato(`analisi di ${f.name}: pagina ${i} di ${doc.numPages}`);
+        bar(i - 1, doc.numPages);
+        const page = await doc.getPage(i);
+        const cv = await renderHeader(page, DETECT_DPI, 0);
+        if(fi === 0 && i === 1) mostraCrop(cv);
+        let p = parseHeader(await ocrText(cv, 6));
+        let isBord = p.isBord, az = p.azienda, vg = p.viaggio, dp = p.depot, home = p.isHome;
+
+        if(isBord){
+          const v = await voteHeader(page);
+          az = v.az || az; vg = v.vg || vg; dp = v.dp || dp; home = v.home;
+          if(home){
+            if(CFG.verbose) log(`  pag ${String(i).padStart(3)}  BORDERO'  mag=${dp}  azienda=${az}  viaggio=${vg}`
+                              + `   (voti az=${JSON.stringify(v.azv)} vg=${JSON.stringify(v.vgv)} mag=${JSON.stringify(v.dpv)})`);
+          }else if(dp === null && CFG.unknownAsBordero){
+            log(`  pag ${String(i).padStart(3)}  [ATTENZIONE] borderò con magazzino NON LEGGIBILE `
+              + `(viaggio=${vg}, azienda=${az}): lo tratto come borderò di partenza. Verifica la pagina.`);
+            home = true;
+          }else{
+            if(CFG.verbose) log(`  pag ${String(i).padStart(3)}  borderò di ALTRO MAGAZZINO (mag=${dp}, viaggio=${vg}) -> allegato`);
+            isBord = false;
+          }
+        }else if(CFG.verbose) log(`  pag ${String(i).padStart(3)}  allegato`);
+
+        ROWS.push({file:f.name, fileIdx:fi, page:i, azienda:az, viaggio:vg,
+                   isBordero:isBord, depot:dp, isHome:home});
+        await new Promise(r => setTimeout(r, 0));   // lascia respirare l'interfaccia
+      }
+      page_cleanup(doc);
+    }
+  }catch(err){
+    msg("Errore durante l'analisi: " + err.message, "err");
+    log("ERRORE: " + (err.stack || err.message));
+    $("run").disabled = false;
+    return;
+  }
+
+  if(CFG.fixViaggio) ROWS = fixViaggioTypos(ROWS);
+  riepilogo(totPages, (performance.now() - t0) / 1000);
+  $("run").disabled = false;
+  bar(1, 1);
+}
+
+function page_cleanup(doc){ try{ doc.cleanup(); doc.destroy(); }catch(e){} }
+
+function mostraCrop(cv){
+  const url = cv.toDataURL("image/png");
+  $("crop").innerHTML = `<span class="hint">area letta della prima pagina:</span> `
+    + `<img src="${url}" style="max-height:90px;border:1px solid var(--line);border-radius:6px;vertical-align:middle">`;
+}
+
+/* ---------- riepilogo ---------- */
+function riepilogo(totPages, secondi){
+  const {packets, orphans} = buildPackets(ROWS, CFG.merge);
+  PACKETS = {packets, orphans};
+  const nBord = ROWS.filter(r => r.isBordero).length;
+
+  $("cPag").textContent  = String(totPages);
+  $("cBord").textContent = String(nBord);
+  $("cPack").textContent = String(packets.size);
+  $("cOrf").textContent  = String(orphans.length);
+
+  log(`\n  --> ${packets.size} pacchetti individuati in ${secondi.toFixed(0)} s`);
+  let html = "<thead><tr><th>File di output</th><th class='num'>Pagine</th><th>Provenienza</th></tr></thead><tbody>";
+  const visti = new Set();
+  packets.forEach(pk => {
+    const nome = nomeUnico(safeName(pk.az, pk.vg), visti);
+    const perFile = {};
+    pk.rows.forEach(r => { (perFile[r.file] = perFile[r.file] || []).push(r.page); });
+    const prov = Object.entries(perFile).map(([f, ps]) => `${f}: ${compatta(ps)}`).join(" · ");
+    log(`      ${nome.padEnd(28)} ${String(pk.rows.length).padStart(3)} pagine  ${prov}`);
+    html += `<tr><td>${nome}</td><td class="num">${pk.rows.length}</td><td>${prov}</td></tr>`;
+    pk.nome = nome;
+  });
+  if(orphans.length){
+    const prov = [...new Set(orphans.map(r => r.file))].map(f =>
+      `${f}: ${compatta(orphans.filter(r => r.file === f).map(r => r.page))}`).join(" · ");
+    log(`  [avviso] ${orphans.length} pagine prima del primo borderò -> _NON_ASSEGNATE.pdf`);
+    html += `<tr><td>_NON_ASSEGNATE.pdf</td><td class="num">${orphans.length}</td><td>${prov}</td></tr>`;
+  }
+  $("tPack").innerHTML = html + "</tbody>";
+  $("result").classList.remove("hidden");
+  stato(`analisi completata: ${totPages} pagine in ${secondi.toFixed(0)} s`);
+  if(!packets.size) msg("Nessun borderò riconosciuto. Controlla il codice del magazzino, "
+    + "oppure imposta “any” per accettare qualsiasi magazzino.", "warn");
+}
+
+/* [1,2,3,7,8] -> "1-3, 7-8" */
+function compatta(nums){
+  const a = [...nums].sort((x,y) => x-y);
+  const out = [];
+  let s = a[0], p = a[0];
+  for(let i = 1; i <= a.length; i++){
+    if(a[i] === p + 1){ p = a[i]; continue; }
+    out.push(s === p ? String(s) : `${s}-${p}`);
+    s = p = a[i];
+  }
+  return out.join(", ");
+}
+
+/* ---------- generazione dei PDF ---------- */
+$("gen").addEventListener("click", genera);
+
+function safeName(az, vg){ return `${az} - ${vg}.pdf`; }
+
+function nomeUnico(base, usati){
+  let nome = base, n = 2;
+  while(usati.has(nome)) nome = base.replace(/\.pdf$/, ` (${n++}).pdf`);
+  usati.add(nome);
+  return nome;
+}
+
+async function genera(){
+  if(!PACKETS) return;
+  $("gen").disabled = true;
+  OUTPUTS = [];
+  $("downloads").innerHTML = "";
+  const jobs = [];
+  const visti = new Set();
+  PACKETS.packets.forEach(pk => jobs.push({name:pk.nome || nomeUnico(safeName(pk.az, pk.vg), visti), rows:pk.rows}));
+  if(PACKETS.orphans.length) jobs.push({name:"_NON_ASSEGNATE.pdf", rows:PACKETS.orphans});
+
+  const totPag = jobs.reduce((s, j) => s + j.rows.length, 0);
+  let fatte = 0;
+  const usati = new Set();
+
+  try{
+    const srcDocs = [];
+    for(const f of FILES) srcDocs.push(await PDFLib.PDFDocument.load(f.bytes, {ignoreEncryption:true}));
+
+    for(const job of jobs){
+      const nome = nomeUnico(job.name, usati);
+
+      const out = await PDFLib.PDFDocument.create();
+      for(const r of job.rows){
+        const [copied] = await out.copyPages(srcDocs[r.fileIdx], [r.page - 1]);
+        out.addPage(copied);
+      }
+      if(CFG.ocr) await aggiungiTesto(out, job.rows, (d,t) => {
+        stato(`livello testo — ${nome}: pagina ${d} di ${t}`);
+      });
+      const bytes = await out.save();
+      OUTPUTS.push({name:nome, blob:new Blob([bytes], {type:"application/pdf"})});
+      fatte += job.rows.length;
+      bar(fatte, totPag);
+      stato(`generati ${OUTPUTS.length} di ${jobs.length} file`);
+      log(`      scritto: ${nome} (${job.rows.length} pagine)`);
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }catch(err){
+    msg("Errore durante la generazione: " + err.message, "err");
+    log("ERRORE: " + (err.stack || err.message));
+  }
+
+  mostraDownload();
+  $("gen").disabled = false;
+  stato(`fatto: ${OUTPUTS.length} file pronti`);
+}
+
+/* livello testo: parole OCR disegnate trasparenti sopra la scansione originale */
+async function aggiungiTesto(outDoc, rows, onProg){
+  const font = await outDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+  for(let i = 0; i < rows.length; i++){
+    onProg(i + 1, rows.length);
+    const r = rows[i];
+    const doc = await pdfjsLib.getDocument({data:FILES[r.fileIdx].bytes.slice()}).promise;
+    const page = await doc.getPage(r.page);
+    const cv = await renderFull(page, OCR_DPI);
+    const words = await ocrWords(cv);
+    page_cleanup(doc);
+
+    const target = outDoc.getPage(i);
+    const {width:W, height:H} = target.getSize();
+    const scale = W / cv.width;
+    for(const w of words){
+      const t = w.text.replace(/[^\x20-\xFF]/g, "?");
+      const h = Math.max((w.y1 - w.y0) * scale, 1);
+      const wid = Math.max((w.x1 - w.x0) * scale, 1);
+      let size = Math.max(h * 0.8, 1);
+      let tw;
+      try{ tw = font.widthOfTextAtSize(t, size) || 1; }catch(e){ continue; }
+      if(tw > wid) size = Math.max(size * wid / tw, 0.5);   // rientra nella larghezza della parola
+      target.drawText(t, {x: w.x0 * scale, y: H - (w.y1 * scale), size, font, opacity: 0});
+    }
+    await new Promise(r2 => setTimeout(r2, 0));
+  }
+}
+
+function mostraDownload(){
+  const box = $("downloads");
+  box.innerHTML = "";
+  if(!OUTPUTS.length) return;
+  if(window.JSZip){
+    const b = document.createElement("button");
+    b.className = "primary";
+    b.textContent = `Scarica tutto (${OUTPUTS.length} file, ZIP)`;
+    b.addEventListener("click", async () => {
+      const zip = new JSZip();
+      for(const o of OUTPUTS) zip.file(o.name, o.blob);
+      const blob = await zip.generateAsync({type:"blob"});
+      scarica(blob, "bordero_" + oggiCompatto() + ".zip");
+    });
+    box.appendChild(b);
+  }
+  OUTPUTS.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o.name;
+    b.addEventListener("click", () => scarica(o.blob, o.name));
+    box.appendChild(b);
+  });
+}
+
+function scarica(blob, name){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function oggiCompatto(){
+  const d = new Date(), p = n => String(n).padStart(2,"0");
+  return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}`;
+}
+
+/* ---------- mappa CSV ---------- */
+$("csv").addEventListener("click", () => {
+  if(!ROWS.length) return;
+  const assign = new Map();
+  if(PACKETS) PACKETS.packets.forEach(pk => {
+    pk.rows.forEach(r => assign.set(r.file + "#" + r.page, pk.nome || safeName(pk.az, pk.vg)));
+  });
+  const righe = [["file","pagina","tipo","azienda","viaggio","magazzino","pacchetto"].join(";")];
+  ROWS.forEach(r => {
+    const tipo = r.isBordero ? "BORDERO"
+               : (r.depot && r.viaggio && !r.isHome ? "BORDERO_ALTRO_MAG" : "ALLEGATO");
+    righe.push([r.file, r.page, tipo, r.azienda||"", r.viaggio||"", r.depot||"",
+                assign.get(r.file+"#"+r.page) || "_NON_ASSEGNATE.pdf"].join(";"));
+  });
+  scarica(new Blob(["﻿" + righe.join("\r\n")], {type:"text/csv;charset=utf-8"}),
+          "mappa_bordero_" + oggiCompatto() + ".csv");
+});
+
+/* ---------- diagnostica librerie ---------- */
+function libsOk(){
+  const mancanti = [];
+  if(typeof pdfjsLib === "undefined") mancanti.push("pdf.js");
+  if(typeof Tesseract === "undefined") mancanti.push("Tesseract.js");
+  if(typeof PDFLib === "undefined")   mancanti.push("pdf-lib");
+  if(mancanti.length){
+    msg("Non riesco a caricare: " + mancanti.join(", ") + ". Servono i CDN cdnjs.cloudflare.com e "
+      + "cdn.jsdelivr.net: se la rete aziendale li blocca, il tool non può funzionare da questa "
+      + "postazione.", "err");
+    return false;
+  }
+  return true;
+}
+
+(function init(){
+  const ok = [];
+  if(typeof pdfjsLib !== "undefined"){
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    ok.push("pdf.js");
+  }
+  if(typeof Tesseract !== "undefined") ok.push("Tesseract.js");
+  if(typeof PDFLib !== "undefined") ok.push("pdf-lib");
+  if(typeof JSZip !== "undefined") ok.push("JSZip");
+  const tutte = ["pdf.js","Tesseract.js","pdf-lib","JSZip"];
+  const ko = tutte.filter(l => !ok.includes(l));
+  $("diag").innerHTML = ko.length
+    ? `<span style="color:var(--err)">librerie non caricate: ${ko.join(", ")}</span>`
+    : `librerie caricate: ${ok.join(", ")}`;
+})();
+</script>
+</body>
+</html>

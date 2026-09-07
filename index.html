@@ -142,13 +142,14 @@
       <a href="giacenze.html">Aggregatore giacenze</a>
       <a href="rotture.html">Report rotture / L&amp;F</a>
       <a href="inventario.html">Inventario</a>
+      <a href="bordero.html">Borderò</a>
     </nav>
   </div></div>
 
 <div class="wrap">
   <header>
     <h1>Tool Magazzino</h1>
-    <p>Strumenti per elaborare gli estratti Excel del magazzino. Tutto avviene nel browser: i file non vengono caricati da nessuna parte.</p>
+    <p>Strumenti per elaborare gli estratti e i documenti del magazzino. Tutto avviene nel browser: i file non vengono caricati da nessuna parte.</p>
   </header>
 
   <div class="toolgrid">
@@ -184,9 +185,20 @@
       </ul>
       <span class="go">Apri il tool &rarr;</span>
     </a>
+
+    <a class="tool" href="bordero.html">
+      <h2>Spacchetta borderò</h2>
+      <p>Un PDF scansionato di borderò diventa un file per viaggio.</p>
+      <ul>
+        <li>OCR della testata nel browser, nessun caricamento online</li>
+        <li>Un PDF per ogni coppia azienda + viaggio, allegati inclusi</li>
+        <li>Download in ZIP e mappa CSV pagina &rarr; pacchetto</li>
+      </ul>
+      <span class="go">Apri il tool &rarr;</span>
+    </a>
   </div>
 
-  <p class="note">Formati letti: .xlsx, .xlsm, .xls e (nell'aggregatore) .csv. Al primo caricamento serve la connessione a internet per scaricare la libreria di lettura Excel.</p>
+  <p class="note">Formati letti: .xlsx, .xlsm, .xls, .csv e PDF. Al primo caricamento serve la connessione a internet per scaricare le librerie; lo spacchetta borderò scarica anche i dati lingua dell'OCR (circa 15 MB, poi restano in cache).</p>
 </div>
 </body>
 </html>
