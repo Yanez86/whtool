@@ -250,8 +250,8 @@ const OCR_DPI = 300;                            // rasterizzazione per il livell
 const RE_BORDERO       = /BORDER\w{0,3}['’‘"]?\s*DI\s*CARICO/i;
 const RE_PER_ORDINE    = /PER\s+ORDINE/i;
 const RE_TRASPORTATORE = /Trasport\w*/i;
-const RE_VIAGGIO       = /Viagg\w{0,3}\s*[:.;]?\s*[^\dA-Za-z\n]{0,8}(\d{4,8})/;
-const RE_AZIENDA       = /Az\w{4,8}\s*[:.;]?\s*[^\dA-Za-z\n]{0,8}(\d{2,6})/;
+const RE_VIAGGIO       = /Viagg\w{0,3}\s*[:.;]?\s*[^\dA-Za-z\n]{0,8}(\d{4,8})/i;
+const RE_AZIENDA       = /Az\w{4,8}\s*[:.;]?\s*[^\dA-Za-z\n]{0,8}(\d{2,6})/i;
 const RE_DEPOT         = /(\d{3,5})\s*[-–—.,:]?\s*(?=[A-Za-z])/g;
 const RE_VIAGGIO_POS   = /Viagg/i;
 
@@ -299,7 +299,7 @@ function parseHeader(text){
   const isBord = marker && viaggio !== null && azienda !== null;
   const {code, nameHit} = extractDepot(text);
   const isHome = CFG.anyDepot || (code !== null && CFG.codes.has(code)) || nameHit;
-  return {isBord, azienda, viaggio, depot:code, isHome};
+  return {isBord, marker, azienda, viaggio, depot:code, isHome};
 }
 
 function hamming1(a, b){
@@ -393,10 +393,14 @@ async function getWorker(){
   try{
     WORKER = await Tesseract.createWorker(LANG, 1, {logger:() => {}});
   }catch(e){
-    log("  [avviso] dati lingua italiana non disponibili: uso solo l'inglese (" + e.message + ")");
     LANG = "eng";
     WORKER = await Tesseract.createWorker("eng", 1, {logger:() => {}});
+    log("  [avviso] dati lingua italiana non scaricati: OCR in solo inglese (" + e.message + ")");
+    msg("Non sono riuscito a scaricare i dati lingua italiani: l'OCR gira in inglese e legge peggio "
+      + "le testate. Se la rete blocca tessdata.projectnaptha.com, conviene tenere i dati lingua "
+      + "dentro il repository.", "warn");
   }
+  log("  lingua OCR: " + LANG);
   return WORKER;
 }
 
@@ -534,10 +538,18 @@ async function analizza(){
         let p = parseHeader(await ocrText(cv, 6));
         let isBord = p.isBord, az = p.azienda, vg = p.viaggio, dp = p.depot, home = p.isHome;
 
-        if(isBord){
+        // pagina candidata: ha i marcatori del borderò anche se all'OCR manca un numero.
+        // Vale la pena rileggerla con le varianti prima di declassarla ad allegato.
+        const candidata = isBord || (p.marker && (p.azienda || p.viaggio));
+
+        if(candidata){
           const v = await voteHeader(page);
           az = v.az || az; vg = v.vg || vg; dp = v.dp || dp; home = v.home;
-          if(home){
+          isBord = p.marker && !!az && !!vg;
+          if(!isBord){
+            if(CFG.verbose) log(`  pag ${String(i).padStart(3)}  testata di borderò incompleta all'OCR `
+                              + `(azienda=${az}, viaggio=${vg}) -> trattata come allegato`);
+          }else if(home){
             if(CFG.verbose) log(`  pag ${String(i).padStart(3)}  BORDERO'  mag=${dp}  azienda=${az}  viaggio=${vg}`
                               + `   (voti az=${JSON.stringify(v.azv)} vg=${JSON.stringify(v.vgv)} mag=${JSON.stringify(v.dpv)})`);
           }else if(dp === null && CFG.unknownAsBordero){
