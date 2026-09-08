@@ -135,6 +135,13 @@
     white-space:pre-wrap;word-break:break-word}
   #downloads button{font-size:13px}
   #filelist .slot:last-child{margin-bottom:0 !important}
+
+  /* piè di pagina con versione */
+  .ver{max-width:1180px;margin:0 auto;padding:14px 20px 28px;color:var(--muted);font-size:12px;
+    border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}
+  .ver strong{font-weight:600;color:var(--ink)}
+  .ver .sep{opacity:.5}
+  @media print{ .ver{display:none !important} }
 </style>
 </head>
 <body>
@@ -197,6 +204,9 @@
       <label style="display:flex;align-items:center;gap:6px">
         <input type="checkbox" id="oRapida"> Analisi rapida
       </label>
+      <label style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="oPrima" checked> La prima pagina è sempre un borderò
+      </label>
     </div>
     <div class="hint">Con <em>analisi rapida</em> le testate già lette in modo chiaro non vengono rilette con le sei varianti: si dimezza il tempo, a costo di qualche cifra sbagliata in più nei nomi dei file.</div>
     <div class="hint">Il livello testo rende i PDF ricercabili ma è lento: conta qualche secondo per pagina. Senza, lo spacchettamento resta rapido e le scansioni restano identiche all'originale.</div>
@@ -235,6 +245,12 @@
   </div>
 </div>
 
+<footer class="ver noprint">
+  <span><strong>Spacchetta borderò</strong> <span class="sep">·</span> versione 1.3</span>
+  <span class="sep">·</span>
+  <span>aggiornato il 08/09/2026</span>
+</footer>
+
 <script>
 "use strict";
 
@@ -260,7 +276,7 @@ const RE_DEPOT         = /(\d{3,5})\s*[-–—.,:]?\s*(?=[A-Za-z])/g;
 const RE_VIAGGIO_POS   = /Viagg/i;
 
 let CFG = { codes:new Set(["3980"]), names:new Set(["SETTALA"]), anyDepot:false,
-            unknownAsBordero:true, fixViaggio:true, ocr:false, verbose:true, merge:false, rapida:false };
+            unknownAsBordero:true, fixViaggio:true, ocr:false, verbose:true, merge:false, rapida:false, primaBordero:true };
 
 /* ---------- log ---------- */
 function log(s){
@@ -276,11 +292,35 @@ function msg(text, kind){
   $("messages").appendChild(d);
 }
 function stato(s){ $("stato").textContent = s; }
+
+/* Pausa per lasciar respirare l'interfaccia. Non usa setTimeout perche' nelle schede
+   in secondo piano il browser lo rallenta a un giro al secondo, e dopo cinque minuti
+   a uno al minuto: l'elaborazione si trascinerebbe per ore. Un messaggio su
+   MessageChannel non subisce questo rallentamento. */
+const _canale = new MessageChannel();
+const _inAttesa = [];
+_canale.port1.onmessage = () => { const f = _inAttesa.shift(); if(f) f(); };
+function cedi(){
+  return new Promise(r => { _inAttesa.push(r); _canale.port2.postMessage(0); });
+}
+
+/* avanzamento visibile nel titolo della scheda, utile mentre si lavora altrove */
+let LAVORO = false;
+const TITOLO = document.title;
+function titolo(pct){
+  document.title = (LAVORO && pct !== null) ? `${pct}% · ${TITOLO}` : TITOLO;
+}
+window.addEventListener("beforeunload", e => {
+  if(!LAVORO) return;
+  e.preventDefault(); e.returnValue = "";
+});
 function bar(done, total){
   const b = $("bar");
   if(total <= 0){ b.classList.add("hidden"); return; }
   b.classList.remove("hidden");
-  $("barfill").style.width = Math.round(100 * done / total) + "%";
+  const pct = Math.round(100 * done / total);
+  $("barfill").style.width = pct + "%";
+  titolo(pct);
 }
 
 /* ---------- parsing della testata (logica identica allo script) ---------- */
@@ -304,6 +344,32 @@ function parseHeader(text){
   const {code, nameHit} = extractDepot(text);
   const isHome = CFG.anyDepot || (code !== null && CFG.codes.has(code)) || nameHit;
   return {isBord, marker, azienda, viaggio, depot:code, isHome};
+}
+
+const AZ_IGNOTA = "AZIENDA DA VERIFICARE";
+const VG_IGNOTO = "VIAGGIO DA VERIFICARE";
+
+/* La prima pagina di ogni PDF è sempre un borderò di partenza: se l'OCR non la
+   riconosce è un errore di lettura, non un allegato. Il pacchetto va aperto comunque,
+   con i dati che si sono riusciti a leggere e un segnaposto per quelli mancanti. */
+function forzaPrimaPagina(rows){
+  const visti = new Set();
+  const forzate = [];
+  rows.forEach(r => {
+    if(visti.has(r.fileIdx)) return;
+    visti.add(r.fileIdx);
+    if(r.isBordero && r.isHome) return;              // già riconosciuta, niente da fare
+    const motivo = r.isBordero
+      ? `letta come borderò di un altro magazzino (mag=${r.depot})`
+      : (r.azienda || r.viaggio ? "testata letta solo in parte" : "testata non riconosciuta");
+    if(!r.azienda) r.azienda = AZ_IGNOTA;
+    if(!r.viaggio) r.viaggio = VG_IGNOTO;
+    r.isBordero = true; r.isHome = true; r.forzato = true;
+    log(`  [ATTENZIONE] ${r.file} pag ${r.page}: ${motivo}. La prima pagina è sempre un `
+      + `borderò, quindi apro comunque il pacchetto "${r.azienda} - ${r.viaggio}". Controlla il nome.`);
+    forzate.push(r);
+  });
+  return forzate;
 }
 
 function hamming1(a, b){
@@ -560,6 +626,7 @@ function readCfg(){
   CFG.verbose = $("oVerbose").checked;
   CFG.merge = $("oMerge").checked;
   CFG.rapida = $("oRapida").checked;
+  CFG.primaBordero = $("oPrima").checked;
 }
 
 $("run").addEventListener("click", analizza);
@@ -568,6 +635,7 @@ async function analizza(){
   if(!libsOk()) return;
   readCfg();
   $("run").disabled = true;
+  LAVORO = true;
   $("result").classList.add("hidden");
   $("downloads").innerHTML = "";
   $("log").textContent = "";
@@ -642,7 +710,7 @@ async function analizza(){
         fatte = fine;
         bar(fatte, doc.numPages);
         lotto.forEach(b => { b.cv.width = b.cv.height = 0; });   // libera la memoria
-        await new Promise(r => setTimeout(r, 0));
+        await cedi();
       }
       page_cleanup(doc);
     }
@@ -650,12 +718,15 @@ async function analizza(){
     msg("Errore durante l'analisi: " + err.message, "err");
     log("ERRORE: " + (err.stack || err.message));
     $("run").disabled = false;
+    LAVORO = false; titolo(null);
     return;
   }
 
+  const forzate = CFG.primaBordero ? forzaPrimaPagina(ROWS) : [];
   if(CFG.fixViaggio) ROWS = fixViaggioTypos(ROWS);
-  riepilogo(totPages, (performance.now() - t0) / 1000);
+  riepilogo(totPages, (performance.now() - t0) / 1000, forzate);
   $("run").disabled = false;
+  LAVORO = false; titolo(null);
   bar(1, 1);
 }
 
@@ -668,7 +739,7 @@ function mostraCrop(cv){
 }
 
 /* ---------- riepilogo ---------- */
-function riepilogo(totPages, secondi){
+function riepilogo(totPages, secondi, forzate){
   const {packets, orphans} = buildPackets(ROWS, CFG.merge);
   PACKETS = {packets, orphans};
   const nBord = ROWS.filter(r => r.isBordero).length;
@@ -698,6 +769,11 @@ function riepilogo(totPages, secondi){
   }
   $("tPack").innerHTML = html + "</tbody>";
   $("result").classList.remove("hidden");
+  if(forzate && forzate.length){
+    msg("Prima pagina non riconosciuta in " + forzate.length + (forzate.length === 1 ? " file" : " file")
+      + " (" + forzate.map(r => r.file + " pag " + r.page).join(", ") + "). Ho aperto comunque il "
+      + "pacchetto: se nel nome compare “DA VERIFICARE” apri quella pagina e rinomina il PDF a mano.", "warn");
+  }
   stato(`analisi completata: ${totPages} pagine in ${secondi.toFixed(0)} s`);
   if(!packets.size) msg("Nessun borderò riconosciuto. Controlla il codice del magazzino, "
     + "oppure imposta “any” per accettare qualsiasi magazzino.", "warn");
@@ -731,6 +807,7 @@ function nomeUnico(base, usati){
 async function genera(){
   if(!PACKETS) return;
   $("gen").disabled = true;
+  LAVORO = true;
   OUTPUTS = [];
   $("downloads").innerHTML = "";
   const jobs = [];
@@ -763,7 +840,7 @@ async function genera(){
       bar(fatte, totPag);
       stato(`generati ${OUTPUTS.length} di ${jobs.length} file`);
       log(`      scritto: ${nome} (${job.rows.length} pagine)`);
-      await new Promise(r => setTimeout(r, 0));
+      await cedi();
     }
   }catch(err){
     msg("Errore durante la generazione: " + err.message, "err");
@@ -772,6 +849,7 @@ async function genera(){
 
   mostraDownload();
   $("gen").disabled = false;
+  LAVORO = false; titolo(null);
   stato(`fatto: ${OUTPUTS.length} file pronti`);
 }
 
@@ -800,7 +878,7 @@ async function aggiungiTesto(outDoc, rows, onProg){
       if(tw > wid) size = Math.max(size * wid / tw, 0.5);   // rientra nella larghezza della parola
       target.drawText(t, {x: w.x0 * scale, y: H - (w.y1 * scale), size, font, opacity: 0});
     }
-    await new Promise(r2 => setTimeout(r2, 0));
+    await cedi();
   }
 }
 
@@ -848,7 +926,8 @@ $("csv").addEventListener("click", () => {
   });
   const righe = [["file","pagina","tipo","azienda","viaggio","magazzino","pacchetto"].join(";")];
   ROWS.forEach(r => {
-    const tipo = r.isBordero ? "BORDERO"
+    const tipo = r.forzato ? "BORDERO_FORZATO"
+               : r.isBordero ? "BORDERO"
                : (r.depot && r.viaggio && !r.isHome ? "BORDERO_ALTRO_MAG" : "ALLEGATO");
     righe.push([r.file, r.page, tipo, r.azienda||"", r.viaggio||"", r.depot||"",
                 assign.get(r.file+"#"+r.page) || "_NON_ASSEGNATE.pdf"].join(";"));

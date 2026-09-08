@@ -10,6 +10,8 @@ Quattro strumenti web per elaborare gli estratti Excel del magazzino. Sono pagin
 | `inventario.html` | **Inventario** — lista di spunta con barcode + foglio di controllo corridoi |
 | `bordero.html` | **Spacchetta borderò** — divide i PDF scansionati in un file per viaggio, con OCR |
 
+Ogni tool porta la propria versione e la data di aggiornamento nel piè di pagina; lo storico è in `CHANGELOG.md`.
+
 ## Aggregatore giacenze
 
 - Aggregazione di default: **Articolo · Descrizione Articolo · Stato Contabile · Data Scadenza**, con somma di **Quantità Stoccata** e conteggio UdC.
@@ -49,9 +51,12 @@ Porting nel browser di `split_bordero.py`: pdf.js rende le pagine, Tesseract.js 
 
 - Riconosce la testata *BORDERO' DI CARICO*, legge **Viaggio** e **Azienda**, e apre un pacchetto per ogni coppia; le pagine successive (DDT, mail, fogli a mano) finiscono nel pacchetto aperto.
 - Solo i borderò del **magazzino di partenza** (default 3980 / SETTALA) aprono un pacchetto: quelli di altri magazzini valgono come allegati. Con `any` si accetta qualsiasi magazzino; se il magazzino non è leggibile si sceglie se trattarlo come borderò (default, con avviso) o come allegato.
+- Il riconoscimento è tollerante a maiuscole e minuscole: l'OCR legge spesso `viaggio` o `azienda` in minuscolo e la pagina andrebbe persa. Se la testata ha i marcatori del borderò ma manca un numero, la pagina viene comunque riletta con le varianti prima di essere declassata ad allegato.
 - Sulle pagine borderò la testata viene riletta con sei varianti di dpi, segmentazione e micro-rotazione e i numeri vengono decisi a maggioranza; un numero di viaggio isolato che differisce di una cifra da uno molto più frequente viene corretto.
+- **La prima pagina di ogni PDF è sempre un borderò di partenza**: se l'OCR non la riconosce è un errore di lettura, non un allegato, quindi il pacchetto viene aperto lo stesso. I dati letti si tengono, quelli mancanti diventano `AZIENDA DA VERIFICARE` / `VIAGGIO DA VERIFICARE` nel nome del file, con un avviso in evidenza e la riga marcata `BORDERO_FORZATO` nel CSV. La casella si può togliere per tornare al comportamento dello script (pagine iniziali in `_NON_ASSEGNATE.pdf`).
 - Ogni pacchetto esce come `<AZIENDA> - <VIAGGIO>.pdf`; le pagine precedenti al primo borderò finiscono in `_NON_ASSEGNATE.pdf`. Download singoli o ZIP unico, più la mappa CSV pagina → pacchetto.
 - Come nello script, ogni PDF di input fa storia a sé; la casella *Unisci pacchetti fra file diversi* accorpa lo stesso viaggio trovato in scansioni diverse.
+- L'OCR gira su più processi in parallelo (fino a quattro, secondo i core della macchina) e le sei varianti della rilettura partono insieme: su un PC normale l'analisi va circa tre volte più veloce della versione a un processo solo. La casella *Analisi rapida* salta la rilettura sulle testate già lette in modo completo (sul file di prova: 71 chiamate OCR invece di 119, stesso risultato).
 - Il **livello testo OCR** è opzionale e spento di default: rende i PDF ricercabili scrivendo il testo trasparente sopra la scansione originale, ma richiede qualche secondo per pagina.
 
 Differenze rispetto allo script Python: niente `ocrmypdf` (il livello testo usa sempre il metodo overlay) e niente deskew/rotazione automatica delle pagine. Il primo avvio scarica i dati lingua di Tesseract (circa 15 MB) da un CDN esterno: se la rete aziendale blocca i CDN il pannello di diagnostica lo segnala subito.
@@ -59,7 +64,7 @@ Differenze rispetto allo script Python: niente `ocrmypdf` (il livello testo usa 
 ## Pubblicazione su GitHub Pages
 
 1. Su GitHub crea un repository nuovo, ad esempio `tool-magazzino`.
-2. Carica i cinque file HTML nella root: **Add file → Upload files → Commit changes**.
+2. Carica i cinque file HTML nella root (i `.md` sono facoltativi): **Add file → Upload files → Commit changes**.
 3. **Settings → Pages** → *Source*: **Deploy from a branch**, branch **main**, cartella **/ (root)** → **Save**.
 4. Dopo circa un minuto è online su `https://<tuo-utente>.github.io/tool-magazzino/` — la home si apre da sola, i quattro tool sono raggiungibili dalla barra in alto.
 

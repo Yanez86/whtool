@@ -122,6 +122,13 @@
     border-top:2px solid var(--line);border-bottom:none}
 
   .hidden{display:none}
+
+  /* piè di pagina con versione */
+  .ver{max-width:1180px;margin:0 auto;padding:14px 20px 28px;color:var(--muted);font-size:12px;
+    border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}
+  .ver strong{font-weight:600;color:var(--ink)}
+  .ver .sep{opacity:.5}
+  @media print{ .ver{display:none !important} }
 </style>
 </head>
 <body>
@@ -205,6 +212,12 @@
   </section>
 
 </div>
+
+<footer class="ver noprint">
+  <span><strong>Report rotture / Lost &amp; Found</strong> <span class="sep">·</span> versione 1.1</span>
+  <span class="sep">·</span>
+  <span>aggiornato il 08/09/2026</span>
+</footer>
 
 <script>
 (function(){
