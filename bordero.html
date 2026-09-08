@@ -194,7 +194,11 @@
       <label style="display:flex;align-items:center;gap:6px">
         <input type="checkbox" id="oMerge"> Unisci pacchetti fra file diversi
       </label>
+      <label style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="oRapida"> Analisi rapida
+      </label>
     </div>
+    <div class="hint">Con <em>analisi rapida</em> le testate già lette in modo chiaro non vengono rilette con le sei varianti: si dimezza il tempo, a costo di qualche cifra sbagliata in più nei nomi dei file.</div>
     <div class="hint">Il livello testo rende i PDF ricercabili ma è lento: conta qualche secondo per pagina. Senza, lo spacchettamento resta rapido e le scansioni restano identiche all'originale.</div>
     <div class="btns">
       <button class="primary" id="run" disabled>Analizza</button>
@@ -256,7 +260,7 @@ const RE_DEPOT         = /(\d{3,5})\s*[-–—.,:]?\s*(?=[A-Za-z])/g;
 const RE_VIAGGIO_POS   = /Viagg/i;
 
 let CFG = { codes:new Set(["3980"]), names:new Set(["SETTALA"]), anyDepot:false,
-            unknownAsBordero:true, fixViaggio:true, ocr:false, verbose:true, merge:false };
+            unknownAsBordero:true, fixViaggio:true, ocr:false, verbose:true, merge:false, rapida:false };
 
 /* ---------- log ---------- */
 function log(s){
@@ -364,12 +368,17 @@ async function renderHeader(page, dpi, rotDeg){
   ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
   await page.render({canvasContext:ctx, viewport:vp, transform:[1,0,0,1,-x0,-y0]}).promise;
 
-  if(!rotDeg) return cv;
+  return rotDeg ? ruota(cv, rotDeg) : cv;
+}
+
+/* ruota di pochi gradi attorno al centro, sfondo bianco */
+function ruota(cv, gradi){
+  const w = cv.width, h = cv.height;
   const cv2 = document.createElement("canvas");
   cv2.width = w; cv2.height = h;
   const c2 = cv2.getContext("2d");
   c2.fillStyle = "#fff"; c2.fillRect(0, 0, w, h);
-  c2.translate(w/2, h/2); c2.rotate(rotDeg * Math.PI / 180); c2.translate(-w/2, -h/2);
+  c2.translate(w/2, h/2); c2.rotate(gradi * Math.PI / 180); c2.translate(-w/2, -h/2);
   c2.drawImage(cv, 0, 0);
   return cv2;
 }
@@ -384,37 +393,77 @@ async function renderFull(page, dpi){
   return cv;
 }
 
-/* ---------- OCR ---------- */
-let WORKER = null, LANG = "ita+eng";
+/* ---------- OCR: pool di worker in parallelo ---------- */
+let SCHED = null;        // pool a psm 6 (il grosso del lavoro)
+let ALT = null;          // worker singolo per le varianti a psm 11 / 4
+let ALT_QUEUE = Promise.resolve();
+let LANG = "ita+eng";
+let NW = 1;
 
-async function getWorker(){
-  if(WORKER) return WORKER;
-  stato("preparo l'OCR (al primo avvio scarica i dati lingua, può richiedere un minuto)…");
+function nWorkers(){
+  const hc = navigator.hardwareConcurrency || 2;
+  return Math.max(1, Math.min(4, hc - 1));
+}
+
+async function nuovoWorker(psm){
+  let w;
   try{
-    WORKER = await Tesseract.createWorker(LANG, 1, {logger:() => {}});
+    w = await Tesseract.createWorker(LANG, 1, {logger:() => {}});
   }catch(e){
+    if(LANG === "eng") throw e;
     LANG = "eng";
-    WORKER = await Tesseract.createWorker("eng", 1, {logger:() => {}});
-    log("  [avviso] dati lingua italiana non scaricati: OCR in solo inglese (" + e.message + ")");
+    w = await Tesseract.createWorker("eng", 1, {logger:() => {}});
+    log("  [avviso] dati lingua italiana non scaricate: OCR in solo inglese (" + e.message + ")");
     msg("Non sono riuscito a scaricare i dati lingua italiani: l'OCR gira in inglese e legge peggio "
       + "le testate. Se la rete blocca tessdata.projectnaptha.com, conviene tenere i dati lingua "
       + "dentro il repository.", "warn");
   }
-  log("  lingua OCR: " + LANG);
-  return WORKER;
+  if(psm) await w.setParameters({tessedit_pageseg_mode: String(psm)});
+  return w;
 }
 
+async function getSched(){
+  if(SCHED) return SCHED;
+  NW = nWorkers();
+  stato(`preparo l'OCR su ${NW} processi paralleli (al primo avvio scarica i dati lingua)…`);
+  SCHED = Tesseract.createScheduler();
+  // il primo worker da solo: se la lingua non c'è, il ripiego avviene una volta sola
+  SCHED.addWorker(await nuovoWorker(6));
+  const altri = [];
+  for(let k = 1; k < NW; k++) altri.push(nuovoWorker(6));
+  (await Promise.all(altri)).forEach(w => SCHED.addWorker(w));
+  log(`  lingua OCR: ${LANG} — ${NW} processi paralleli`);
+  const d = $("diag");
+  if(d && !/OCR/.test(d.textContent)) d.textContent += ` · OCR ${LANG} su ${NW} processi`;
+  return SCHED;
+}
+
+const OUT_TESTO = {text:true, blocks:false, hocr:false, tsv:false};
+
+/* psm 6 -> pool parallelo; altri psm -> worker dedicato, in coda */
 async function ocrText(canvas, psm){
-  const w = await getWorker();
-  await w.setParameters({tessedit_pageseg_mode: String(psm)});
-  const r = await w.recognize(canvas);
-  return r.data.text || "";
+  if(Number(psm) === 6){
+    const sc = await getSched();
+    const r = await sc.addJob("recognize", canvas, {}, OUT_TESTO);
+    return (r.data && r.data.text) || "";
+  }
+  await getSched();
+  const run = async () => {
+    if(!ALT) ALT = await nuovoWorker(null);
+    await ALT.setParameters({tessedit_pageseg_mode: String(psm)});
+    const r = await ALT.recognize(canvas, {}, OUT_TESTO);
+    return (r.data && r.data.text) || "";
+  };
+  const p = ALT_QUEUE.then(run, run);
+  ALT_QUEUE = p.catch(() => {});
+  return p;
 }
 
 async function ocrWords(canvas){
-  const w = await getWorker();
-  await w.setParameters({tessedit_pageseg_mode: "1"});
-  const r = await w.recognize(canvas, {}, {blocks:true, text:false});
+  await getSched();
+  if(!ALT) ALT = await nuovoWorker(null);
+  await ALT.setParameters({tessedit_pageseg_mode: "1"});
+  const r = await ALT.recognize(canvas, {}, {blocks:true, text:false});
   const out = [];
   const push = word => {
     const t = (word.text || "").trim();
@@ -431,25 +480,32 @@ async function ocrWords(canvas){
   return out;
 }
 
-/* voto di maggioranza sulle cifre, come vote_header() dello script */
-async function voteHeader(page){
-  const az = new Map(), vg = new Map(), dp = new Map(), home = new Map();
+/* voto di maggioranza sulle cifre: le sei varianti girano in parallelo.
+   cv300 è la testata già renderizzata dal primo passaggio, così non si rifà. */
+async function voteHeader(page, cv300){
   const cache = new Map();
+  if(cv300) cache.set(DETECT_DPI, cv300);
+  const dpiNecessari = [...new Set(VOTE_VARIANTS.map(v => v[0]))];
+  for(const d of dpiNecessari) if(!cache.has(d)) cache.set(d, await renderHeader(page, d, 0));
+
+  const esiti = await Promise.all(VOTE_VARIANTS.map(async ([dpi, psm, rot]) => {
+    const cv = rot ? await ruota(cache.get(dpi), rot) : cache.get(dpi);
+    return parseHeader(await ocrText(cv, psm));
+  }));
+
+  const az = new Map(), vg = new Map(), dp = new Map(), home = new Map();
   const bump = (m, k) => { if(k !== null && k !== undefined) m.set(k, (m.get(k)||0)+1); };
-  for(const [dpi, psm, rot] of VOTE_VARIANTS){
-    let cv;
-    if(rot){ cv = await renderHeader(page, dpi, rot); }
-    else{
-      if(!cache.has(dpi)) cache.set(dpi, await renderHeader(page, dpi, 0));
-      cv = cache.get(dpi);
-    }
-    const p = parseHeader(await ocrText(cv, psm));
-    bump(az, p.azienda); bump(vg, p.viaggio); bump(dp, p.depot); bump(home, p.isHome);
-  }
+  esiti.forEach(p => { bump(az, p.azienda); bump(vg, p.viaggio); bump(dp, p.depot); bump(home, p.isHome); });
   const top = m => m.size ? [...m.entries()].sort((a,b) => b[1]-a[1])[0][0] : null;
   const obj = m => Object.fromEntries(m);
   return {az:top(az), vg:top(vg), dp:top(dp), home:top(home) === true,
           azv:obj(az), vgv:obj(vg), dpv:obj(dp)};
+}
+
+async function chiudiOcr(){
+  try{ if(SCHED) await SCHED.terminate(); }catch(e){}
+  try{ if(ALT) await ALT.terminate(); }catch(e){}
+  SCHED = null; ALT = null; ALT_QUEUE = Promise.resolve();
 }
 
 /* ---------- stato ---------- */
@@ -483,6 +539,7 @@ function renderFiles(){
   + `<div class="meta">${(f.file.size/1048576).toFixed(1)} MB<span id="fp${i}"></span></div></div>`).join("");
 }
 $("reset").addEventListener("click", () => {
+  chiudiOcr();
   FILES = []; ROWS = []; PACKETS = null; OUTPUTS = [];
   $("messages").innerHTML = ""; $("log").textContent = "";
   $("result").classList.add("hidden"); $("logbox").classList.add("hidden");
@@ -502,6 +559,7 @@ function readCfg(){
   CFG.ocr = $("oOcr").checked;
   CFG.verbose = $("oVerbose").checked;
   CFG.merge = $("oMerge").checked;
+  CFG.rapida = $("oRapida").checked;
 }
 
 $("run").addEventListener("click", analizza);
@@ -529,42 +587,62 @@ async function analizza(){
       totPages += doc.numPages;
       log(`\n=== ${f.name} — ${doc.numPages} pagine ===`);
 
-      for(let i = 1; i <= doc.numPages; i++){
-        stato(`analisi di ${f.name}: pagina ${i} di ${doc.numPages}`);
-        bar(i - 1, doc.numPages);
-        const page = await doc.getPage(i);
-        const cv = await renderHeader(page, DETECT_DPI, 0);
-        if(fi === 0 && i === 1) mostraCrop(cv);
-        let p = parseHeader(await ocrText(cv, 6));
-        let isBord = p.isBord, az = p.azienda, vg = p.viaggio, dp = p.depot, home = p.isHome;
+      await getSched();
+      let fatte = 0;
+      for(let start = 1; start <= doc.numPages; start += NW){
+        const fine = Math.min(start + NW - 1, doc.numPages);
+        stato(`analisi di ${f.name}: pagine ${start}-${fine} di ${doc.numPages}`);
 
-        // pagina candidata: ha i marcatori del borderò anche se all'OCR manca un numero.
-        // Vale la pena rileggerla con le varianti prima di declassarla ad allegato.
-        const candidata = isBord || (p.marker && (p.azienda || p.viaggio));
+        // renderizza le testate del blocco, poi le manda all'OCR tutte insieme
+        const lotto = [];
+        for(let i = start; i <= fine; i++){
+          const page = await doc.getPage(i);
+          const cv = await renderHeader(page, DETECT_DPI, 0);
+          if(fi === 0 && i === 1) mostraCrop(cv);
+          lotto.push({i, page, cv});
+        }
+        const testi = await Promise.all(lotto.map(b => ocrText(b.cv, 6)));
 
-        if(candidata){
-          const v = await voteHeader(page);
-          az = v.az || az; vg = v.vg || vg; dp = v.dp || dp; home = v.home;
-          isBord = p.marker && !!az && !!vg;
-          if(!isBord){
-            if(CFG.verbose) log(`  pag ${String(i).padStart(3)}  testata di borderò incompleta all'OCR `
-                              + `(azienda=${az}, viaggio=${vg}) -> trattata come allegato`);
-          }else if(home){
-            if(CFG.verbose) log(`  pag ${String(i).padStart(3)}  BORDERO'  mag=${dp}  azienda=${az}  viaggio=${vg}`
-                              + `   (voti az=${JSON.stringify(v.azv)} vg=${JSON.stringify(v.vgv)} mag=${JSON.stringify(v.dpv)})`);
-          }else if(dp === null && CFG.unknownAsBordero){
-            log(`  pag ${String(i).padStart(3)}  [ATTENZIONE] borderò con magazzino NON LEGGIBILE `
-              + `(viaggio=${vg}, azienda=${az}): lo tratto come borderò di partenza. Verifica la pagina.`);
-            home = true;
-          }else{
-            if(CFG.verbose) log(`  pag ${String(i).padStart(3)}  borderò di ALTRO MAGAZZINO (mag=${dp}, viaggio=${vg}) -> allegato`);
-            isBord = false;
-          }
-        }else if(CFG.verbose) log(`  pag ${String(i).padStart(3)}  allegato`);
+        // le pagine candidate vengono rilette con le varianti, anche queste in parallelo
+        const esiti = await Promise.all(lotto.map(async (b, k) => {
+          const p = parseHeader(testi[k]);
+          let isBord = p.isBord, az = p.azienda, vg = p.viaggio, dp = p.depot, home = p.isHome;
+          const righe = [];
+          const candidata = isBord || (p.marker && (p.azienda || p.viaggio));
+          const rileggi = candidata && !(CFG.rapida && isBord && p.depot);
 
-        ROWS.push({file:f.name, fileIdx:fi, page:i, azienda:az, viaggio:vg,
-                   isBordero:isBord, depot:dp, isHome:home});
-        await new Promise(r => setTimeout(r, 0));   // lascia respirare l'interfaccia
+          if(candidata && !rileggi){
+            if(CFG.verbose) righe.push(`  pag ${String(b.i).padStart(3)}  BORDERO'  mag=${dp}  azienda=${az}  viaggio=${vg}   (analisi rapida)`);
+          }else if(rileggi){
+            const v = await voteHeader(b.page, b.cv);
+            az = v.az || az; vg = v.vg || vg; dp = v.dp || dp; home = v.home;
+            isBord = p.marker && !!az && !!vg;
+            if(!isBord){
+              if(CFG.verbose) righe.push(`  pag ${String(b.i).padStart(3)}  testata di borderò incompleta all'OCR `
+                                + `(azienda=${az}, viaggio=${vg}) -> trattata come allegato`);
+            }else if(home){
+              if(CFG.verbose) righe.push(`  pag ${String(b.i).padStart(3)}  BORDERO'  mag=${dp}  azienda=${az}  viaggio=${vg}`
+                                + `   (voti az=${JSON.stringify(v.azv)} vg=${JSON.stringify(v.vgv)} mag=${JSON.stringify(v.dpv)})`);
+            }else if(dp === null && CFG.unknownAsBordero){
+              righe.push(`  pag ${String(b.i).padStart(3)}  [ATTENZIONE] borderò con magazzino NON LEGGIBILE `
+                + `(viaggio=${vg}, azienda=${az}): lo tratto come borderò di partenza. Verifica la pagina.`);
+              home = true;
+            }else{
+              if(CFG.verbose) righe.push(`  pag ${String(b.i).padStart(3)}  borderò di ALTRO MAGAZZINO (mag=${dp}, viaggio=${vg}) -> allegato`);
+              isBord = false;
+            }
+          }else if(CFG.verbose) righe.push(`  pag ${String(b.i).padStart(3)}  allegato`);
+
+          if(isBord && !home && !(dp === null && CFG.unknownAsBordero)) isBord = false;
+          return {righe, row:{file:f.name, fileIdx:fi, page:b.i, azienda:az, viaggio:vg,
+                              isBordero:isBord, depot:dp, isHome:home}};
+        }));
+
+        esiti.forEach(e => { e.righe.forEach(log); ROWS.push(e.row); });
+        fatte = fine;
+        bar(fatte, doc.numPages);
+        lotto.forEach(b => { b.cv.width = b.cv.height = 0; });   // libera la memoria
+        await new Promise(r => setTimeout(r, 0));
       }
       page_cleanup(doc);
     }
