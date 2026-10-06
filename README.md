@@ -1,13 +1,14 @@
 # Tool Magazzino
 
-Quattro strumenti web per elaborare gli estratti Excel del magazzino. Sono pagine HTML autonome: l'elaborazione avviene interamente nel browser, nessun file viene inviato a un server.
+Cinque strumenti web per elaborare gli estratti Excel del magazzino. Sono pagine HTML autonome: l'elaborazione avviene interamente nel browser, nessun file viene inviato a un server.
 
 | File | Cosa fa |
 |---|---|
-| `index.html` | Home con i quattro strumenti |
+| `index.html` | Home con i cinque strumenti |
 | `giacenze.html` | **Aggregatore giacenze** — un file di giacenza UdC diventa un riepilogo per articolo |
 | `rotture.html` | **Report rotture / Lost & Found** — confronto tra due file, con delta e totali |
 | `inventario.html` | **Inventario** — lista di spunta con barcode + foglio di controllo corridoi |
+| `verifica-inventario.html` | **Verifica inventario** — confronto fisico/logico dell'export di inventario (Stock o Picking), con scheda Riconta stampabile |
 | `bordero.html` | **Spacchetta borderò** — divide i PDF scansionati in un file per viaggio, con OCR |
 
 Ogni tool porta la propria versione e la data di aggiornamento nel piè di pagina; lo storico è in `CHANGELOG.md`.
@@ -45,6 +46,14 @@ Sostituisce le macro `GeneraInventario` e `GeneraFoglioControllo` del file `Inve
 
 La stampa esce in A4 verticale. Per il PDF: *Stampa → Salva come PDF*, lasciando attiva la stampa degli sfondi.
 
+## Verifica inventario
+
+- Si carica l'export dell'attività di inventario (fisico e logico sulla stessa riga) e si sceglie il tipo: **Stock** o **Picking**.
+- Per ogni ubicazione contata confronta **ubicazione**, **articolo** e **quantità in colli**; in **Stock** controlla anche l'**SSCC** (presente, di 18 cifre, non duplicato; se il file avesse un SSCC logico lo confronta). In **Picking** l'SSCC non si verifica.
+- Opzioni, spente di default: *Mostra e confronta anche i pezzi* (solo Picking) e *…anche i lotti*. Filtro opzionale su picking (piano 010–019) o stoccaggio.
+- Riepilogo con ubicazioni pari, difettose e non contate, difetti per tipo, delta fisico − logico (eccedenze, ammanchi) e delta per articolo.
+- **Stampa scheda controllo**: foglio A4 "Scheda Riconta" con il nome inventario e le sole ubicazioni difettose (ubicazione, articolo, difetto, delta). **Esporta in Excel** salva le righe visibili con riepilogo e delta per articolo.
+
 ## Spacchetta borderò
 
 Porting nel browser di `split_bordero.py`: pdf.js rende le pagine, Tesseract.js fa l'OCR della sola testata, pdf-lib scrive i PDF di output.
@@ -64,15 +73,15 @@ Differenze rispetto allo script Python: niente `ocrmypdf` (il livello testo usa 
 ## Pubblicazione su GitHub Pages
 
 1. Su GitHub crea un repository nuovo, ad esempio `tool-magazzino`.
-2. Carica i cinque file HTML nella root (i `.md` sono facoltativi): **Add file → Upload files → Commit changes**.
+2. Carica i sei file HTML nella root (i `.md` sono facoltativi): **Add file → Upload files → Commit changes**.
 3. **Settings → Pages** → *Source*: **Deploy from a branch**, branch **main**, cartella **/ (root)** → **Save**.
-4. Dopo circa un minuto è online su `https://<tuo-utente>.github.io/tool-magazzino/` — la home si apre da sola, i quattro tool sono raggiungibili dalla barra in alto.
+4. Dopo circa un minuto è online su `https://<tuo-utente>.github.io/tool-magazzino/` — la home si apre da sola, i cinque tool sono raggiungibili dalla barra in alto.
 
 Da riga di comando:
 
 ```bash
 git init
-git add index.html giacenze.html rotture.html inventario.html bordero.html README.md
+git add index.html giacenze.html rotture.html inventario.html verifica-inventario.html bordero.html README.md
 git commit -m "Tool magazzino"
 git branch -M main
 git remote add origin https://github.com/<tuo-utente>/tool-magazzino.git

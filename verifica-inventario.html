@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verifica inventario</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#15181d; --muted:#6b7280;
+    --line:#e3e6ea; --accent:#1f6feb; --accent-soft:#e8f0fe;
+    --ok:#0f7b45; --ok-soft:#e6f4ec;
+    --warn:#8a5a00; --warn-soft:#fff5e0;
+    --err:#b42318; --err-soft:#fdeceb;
+    --head:#f7f8fa; --zebra:#fbfcfd;
+    --radius:10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1216; --panel:#171b21; --ink:#e8eaed; --muted:#9aa3af;
+      --line:#282e37; --accent:#4c8dff; --accent-soft:#1b2740;
+      --ok:#4ade80; --ok-soft:#14301f;
+      --warn:#fbbf24; --warn-soft:#33260c;
+      --err:#fca5a5; --err-soft:#3a1614;
+      --head:#1d222a; --zebra:#1b2028;
+    }
+  }
+  /* alias dei colori usati dai componenti di questa pagina */
+  :root{ --card:var(--panel); --ko:var(--err); --ko-bg:var(--err-soft); --nc:var(--muted); --nc-bg:var(--head); --accent-ink:#ffffff; }
+  @media (prefers-color-scheme: dark){ :root{ --accent-ink:#0b1118; } }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;}
+
+  /* barra di navigazione */
+  .topbar{background:var(--panel);border-bottom:1px solid var(--line)}
+  .topbar .inner{max-width:1180px;margin:0 auto;padding:0 20px;display:flex;align-items:center;
+    gap:18px;height:52px;flex-wrap:wrap}
+  .brand{font-weight:700;letter-spacing:-.01em;color:var(--ink);text-decoration:none;white-space:nowrap}
+  .brand span{color:var(--muted);font-weight:400}
+  .navlinks{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+  .navlinks a{color:var(--muted);text-decoration:none;padding:6px 12px;border-radius:8px;white-space:nowrap}
+  .navlinks a:hover{background:var(--accent-soft);color:var(--ink)}
+  .navlinks a.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 64px}
+  header h1{margin:0 0 4px;font-size:22px;letter-spacing:-.01em}
+  header p{margin:0 0 4px;color:var(--muted);max-width:78ch}
+
+
+  header { margin-bottom: 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .card h2 { margin: 0 0 12px; font-size: 15px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; background: var(--card); color: var(--ink); padding: 9px 22px; font-size: 15px;
+                cursor: pointer; font-weight: 600; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on { background: var(--accent); color: var(--accent-ink); }
+  .hint { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+  .drop { border: 2px dashed var(--line); border-radius: 10px; padding: 22px; text-align: center; color: var(--muted);
+          cursor: pointer; }
+  .drop.over { border-color: var(--accent); background: var(--head); }
+  .drop strong { color: var(--ink); }
+  .opts { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 12px; align-items: center; }
+  .optcol { display: flex; flex-direction: column; gap: 6px; }
+  .opts label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  select, input[type=search] { background: var(--card); color: var(--ink); border: 1px solid var(--line);
+         border-radius: 6px; padding: 7px 10px; font-size: 14px; }
+  .msg { padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; }
+  .msg.err { background: var(--ko-bg); color: var(--ko); }
+  .msg.info { background: var(--warn-bg); color: var(--warn); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .kpi { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--card); }
+  .kpi .n { font-size: 30px; font-weight: 700; line-height: 1.1; }
+  .kpi .l { color: var(--muted); font-size: 13px; }
+  .kpi .d { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .kpi.ok .n { color: var(--ok); } .kpi.ko .n { color: var(--ko); } .kpi.nc .n { color: var(--nc); }
+  .bar { height: 12px; border-radius: 6px; overflow: hidden; display: flex; background: var(--nc-bg); margin: 14px 0 4px; }
+  .bar i { display: block; height: 100%; }
+  .bar .b-ok { background: var(--ok); } .bar .b-ko { background: var(--ko); }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { padding: 6px 9px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; white-space: nowrap; }
+  th { background: var(--head); position: sticky; top: 0; font-weight: 600; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .scroll { overflow: auto; max-height: 68vh; border: 1px solid var(--line); border-radius: 8px; }
+  tr.ko td { background: var(--ko-bg); } tr.nc td { color: var(--muted); }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; margin-right: 4px; }
+  .badge.ok { background: var(--ok-bg); color: var(--ok); } .badge.ko { background: var(--ko-bg); color: var(--ko); }
+  .badge.nc { background: var(--nc-bg); color: var(--nc); }
+  .pos { color: var(--ok); font-weight: 600; } .neg { color: var(--ko); font-weight: 600; }
+  .diff { color: var(--ko); font-weight: 600; }
+  .sub2 { color: var(--muted); font-size: 12px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .chip { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 16px;
+          padding: 5px 13px; cursor: pointer; font-size: 13.5px; }
+  .chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .btn { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px; padding: 9px 16px;
+         font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn.sec { background: var(--head); color: var(--ink); border: 1px solid var(--line); }
+  .spacer { flex: 1; }
+  .hidden { display: none !important; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+  .tabs button { border: 0; background: none; color: var(--muted); padding: 8px 14px; font-size: 14px; cursor: pointer;
+                 border-bottom: 3px solid transparent; font-weight: 600; }
+  .tabs button.on { color: var(--accent); border-bottom-color: var(--accent); }
+  #stampa { display: none; }
+  @media print {
+    @page { size: A4; margin: 12mm; }
+    html, body { background: #ffffff !important; color: #000000 !important; }
+    .topbar, .wrap > :not(#stampa), .ver { display: none !important; }
+    .wrap { max-width: none; padding: 0; margin: 0; }
+    #stampa { display: block; color: #000000; background: #ffffff; font: 11pt/1.35 Arial, Helvetica, sans-serif; }
+    #stampa h1 { font-size: 16pt; margin: 0 0 4px; color: #000000; }
+    #stampa .inv { font-size: 14pt; margin: 0 0 4px; color: #000000; }
+    #stampa .meta { font-size: 10pt; margin: 0 0 10px; color: #000000; }
+    #stampa table { width: 100%; border-collapse: collapse; font-size: 11pt; }
+    #stampa thead { display: table-header-group; }
+    #stampa th, #stampa td { border: 1px solid #000000; padding: 5px 7px; color: #000000; background: #ffffff; white-space: normal; vertical-align: top; }
+    #stampa th { background: #e6e6e6; position: static; }
+    #stampa tr { break-inside: avoid; }
+    #stampa td.num, #stampa th.num { text-align: right; font-weight: bold; }
+    #stampa .sis { font-size: 9pt; }
+    #stampa .note { width: 28%; }
+  }
+  /* piè di pagina con versione */
+  .ver{max-width:1180px;margin:0 auto;padding:14px 20px 28px;color:var(--muted);font-size:12px;
+    border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}
+  .ver strong{font-weight:600;color:var(--ink)}
+  .ver .sep{opacity:.5}
+  @media print{ .ver{display:none !important} }
+</style>
+</head>
+<body>
+<div class="topbar"><div class="inner">
+    <a class="brand" href="index.html">Tool Magazzino</a>
+    <nav class="navlinks">
+      <a href="giacenze.html">Aggregatore giacenze</a>
+      <a href="rotture.html">Report rotture / L&amp;F</a>
+      <a href="inventario.html">Inventario</a>
+      <a href="verifica-inventario.html" class="active">Verifica inventario</a>
+      <a href="bordero.html">Borderò</a>
+    </nav>
+  </div></div>
+
+
+<div class="wrap">
+  <header>
+  <h1>Verifica inventario</h1>
+  <p>Confronta fisico e logico dell'esportazione di inventario: ubicazione, SSCC, articolo e quantità. Il file resta nel tuo browser.</p>
+  </header>
+
+  <div id="libErr" class="msg err hidden"></div>
+
+  <div class="card">
+    <h2>1 · Tipo di verifica</h2>
+    <div class="seg" id="modoSeg">
+      <button type="button" data-modo="stock" class="on">Stock</button>
+      <button type="button" data-modo="picking">Picking</button>
+    </div>
+    <p class="hint" id="modoHint"></p>
+  </div>
+
+  <div class="card">
+    <h2>2 · File Excel dell'inventario</h2>
+    <div class="drop" id="drop" tabindex="0">
+      <strong>Trascina qui il file .xlsx</strong> oppure clicca per sceglierlo
+      <div id="fileName" class="hint"></div>
+    </div>
+    <input type="file" id="file" accept=".xlsx,.xls" class="hidden">
+    <div class="opts">
+      <div class="optcol">
+        <label id="optPezziWrap" class="hidden"><input type="checkbox" id="optPezzi"> Mostra e confronta anche i pezzi</label>
+        <label><input type="checkbox" id="optLotti"> Mostra e confronta anche i lotti</label>
+      </div>
+      <label>Ubicazioni:
+        <select id="optUbic">
+          <option value="tutte">tutte</option>
+          <option value="picking">solo picking (piano 010–019)</option>
+          <option value="stoccaggio">solo stoccaggio (piano 020 e oltre)</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <div id="msg"></div>
+
+  <div id="risultati" class="hidden">
+    <div class="card">
+      <h2>Riepilogo</h2>
+      <div class="kpis" id="kpis"></div>
+      <div class="bar" id="bar"></div>
+      <div class="sub2" id="barLeg"></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card"><h2>Difetti per tipo</h2><div id="difetti"></div></div>
+      <div class="card"><h2>Delta quantità (fisico − logico)</h2><div id="delta"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="tabs">
+        <button type="button" data-tab="righe" class="on">Dettaglio ubicazioni</button>
+        <button type="button" data-tab="articoli">Delta per articolo</button>
+      </div>
+
+      <div id="tabRighe">
+        <div class="toolbar">
+          <button type="button" class="chip on" data-f="tutte">Tutte</button>
+          <button type="button" class="chip" data-f="ko">Difettose</button>
+          <button type="button" class="chip" data-f="ok">Pari</button>
+          <button type="button" class="chip" data-f="nc">Non contate</button>
+          <input type="search" id="cerca" placeholder="Cerca ubicazione, SSCC, articolo, lotto…">
+          <span class="spacer"></span>
+          <button type="button" class="btn sec" id="btnExp">Esporta in Excel</button>
+          <button type="button" class="btn sec" id="btnStampa">Stampa scheda controllo</button>
+        </div>
+        <div class="sub2" id="conteggio"></div>
+        <div class="scroll"><table id="tab"></table></div>
+      </div>
+
+      <div id="tabArticoli" class="hidden">
+        <div class="scroll"><table id="tabArt"></table></div>
+      </div>
+    </div>
+  </div>
+  <div id="stampa"></div>
+</div>
+
+<footer class="ver noprint">
+  <span><strong>Verifica inventario</strong> <span class="sep">·</span> versione 1.0</span>
+  <span class="sep">·</span>
+  <span>aggiornato il 06/10/2026</span>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+"use strict";
+
+/* ---------- Stato ---------- */
+var STATO = { nomeInv: "", modo: "stock", fileName: "", records: null, ris: null, filtro: "tutte", tab: "righe" };
+var MAX_RIGHE = 3000;
+
+var HINT = {
+  stock: "Stock: confronta ubicazione, SSCC, articolo e colli. Per ogni ubicazione contata dice se è pari o difettosa e di quanto.",
+  picking: "Picking: come lo stock, ma si possono vedere e confrontare anche i pezzi oltre ai colli."
+};
+
+/* ---------- Utilità ---------- */
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+function txt(v) { return v == null ? "" : String(v).trim(); }
+function num(v) {
+  if (v == null || v === "") return 0;
+  var n = typeof v === "number" ? v : parseFloat(String(v).replace(",", "."));
+  return isNaN(n) ? 0 : n;
+}
+function fmt(n) {
+  var r = Math.round(n * 1000) / 1000;
+  return r.toLocaleString("it-IT", { maximumFractionDigits: 3 });
+}
+function fmtDelta(n) {
+  if (!n) return '<span class="sub2">0</span>';
+  return '<span class="' + (n > 0 ? "pos" : "neg") + '">' + (n > 0 ? "+" : "−") + fmt(Math.abs(n)) + "</span>";
+}
+function norm(s) { return txt(s).toLowerCase().replace(/\s+/g, " "); }
+
+/* Piano = ultimo segmento dell'ubicazione (R01.311.0200.020 -> 20). Picking: 010-019. */
+function pianoDi(ub) {
+  var p = txt(ub).split(".");
+  var n = parseInt(p[p.length - 1], 10);
+  return isNaN(n) ? null : n;
+}
+function isPicking(ub) { var p = pianoDi(ub); return p !== null && p >= 10 && p <= 19; }
+
+/* ---------- Lettura del foglio ---------- */
+/* aoa = array di righe (header:1). Le intestazioni sono duplicate (Item, Lotto, Quantità…):
+   si cercano per nome e numero di occorrenza. */
+function parseSheet(aoa) {
+  var hi = -1, i;
+  for (i = 0; i < Math.min(aoa.length, 15); i++) {
+    var set = (aoa[i] || []).map(norm);
+    if (set.indexOf("stato record") >= 0 && set.indexOf("ubicazione") >= 0) { hi = i; break; }
+  }
+  if (hi < 0) throw new Error("Intestazione non riconosciuta: servono almeno le colonne «Stato Record» e «Ubicazione».");
+  var head = aoa[hi].map(norm);
+  function col(name, n) {
+    var seen = 0, k;
+    for (k = 0; k < head.length; k++) {
+      if (head[k] === norm(name)) { if (seen === (n || 0)) return k; seen++; }
+    }
+    return -1;
+  }
+  var C = {
+    nome: col("Nome Inventario"), stato: col("Stato Record"), ubF: col("Ubicazione"), ubL: col("Ubicazione Originale"),
+    sscc: col("SSCC"), ssccL: col("SSCC", 1),
+    artF: col("Articolo"), artL: col("Cd_oldarticolodep"),
+    itemF: col("Item", 0), itemL: col("Item", 1),
+    lottoF: col("Lotto", 0), lottoL: col("Lotto", 1),
+    collF: col("Quantità Fisica"), collL: col("Quantità Logica"),
+    pzF: col("Pezzi (Fisica)"), pzL: col("Pezzi (Logica)")
+  };
+  var manca = [];
+  [["stato", "Stato Record"], ["ubF", "Ubicazione"], ["ubL", "Ubicazione Originale"], ["artF", "Articolo"],
+   ["collF", "Quantità Fisica"], ["collL", "Quantità Logica"], ["pzF", "Pezzi (Fisica)"], ["pzL", "Pezzi (Logica)"]
+  ].forEach(function (p) { if (C[p[0]] < 0) manca.push(p[1]); });
+  if (manca.length) throw new Error("Colonne mancanti nel file: " + manca.join(", ") + ".");
+
+  var recs = [];
+  for (i = hi + 1; i < aoa.length; i++) {
+    var r = aoa[i];
+    if (!r || !txt(r[C.ubF]) && !txt(r[C.ubL])) continue;
+    function g(k) { return k >= 0 ? r[k] : null; }
+    recs.push({
+      riga: i + 1,
+      nome: txt(g(C.nome)),
+      stato: txt(g(C.stato)).toUpperCase(),
+      ubF: txt(g(C.ubF)), ubL: txt(g(C.ubL)),
+      sscc: txt(g(C.sscc)), ssccL: C.ssccL >= 0 ? txt(g(C.ssccL)) : null,
+      artF: txt(g(C.artF)),
+      artL: txt(C.artL >= 0 ? g(C.artL) : ""),
+      itemF: txt(g(C.itemF)), itemL: txt(g(C.itemL)),
+      lottoF: txt(g(C.lottoF)), lottoL: txt(g(C.lottoL)),
+      collF: num(g(C.collF)), collL: num(g(C.collL)),
+      pzF: num(g(C.pzF)), pzL: num(g(C.pzL))
+    });
+  }
+  if (!recs.length) throw new Error("Nessuna riga di dati trovata nel foglio.");
+  return recs;
+}
+
+/* ---------- Analisi ---------- */
+/* opts: { modo: "stock"|"picking", pezzi: bool, ubic: "tutte"|"picking"|"stoccaggio" } */
+function analyze(recs, opts) {
+  var usaPezzi = opts.modo === "picking" && !!opts.pezzi;
+  var usaLotti = !!opts.lotti;
+  var verificaSscc = opts.modo === "stock"; /* in Picking l'SSCC non si verifica */
+
+  /* SSCC duplicati sull'intero file (un pallet non può stare in due posti) */
+  var cont = {};
+  recs.forEach(function (r) { if (r.sscc) cont[r.sscc] = (cont[r.sscc] || 0) + 1; });
+
+  var righe = recs.filter(function (r) {
+    if (opts.ubic === "picking") return isPicking(r.ubF || r.ubL);
+    if (opts.ubic === "stoccaggio") return !isPicking(r.ubF || r.ubL);
+    return true;
+  }).map(function (r) {
+    var x = {
+      riga: r.riga, ubF: r.ubF, ubL: r.ubL, sscc: r.sscc, ssccL: r.ssccL,
+      artF: r.artF, artL: r.artL, lottoF: r.lottoF, lottoL: r.lottoL,
+      collF: r.collF, collL: r.collL, pzF: r.pzF, pzL: r.pzL,
+      dColli: r.collF - r.collL, dPezzi: r.pzF - r.pzL,
+      contata: r.stato === "CONTATO", difetti: [], esito: "nc", vuota: false
+    };
+    if (!x.contata) {
+      x.conMerceLogica = r.collL > 0 || r.pzL > 0 || !!r.artL;
+      return x;
+    }
+    if (r.ubF !== r.ubL) x.difetti.push("ubic");
+    /* SSCC: duplicato, non di 18 cifre, mancante su pallet con articolo, oppure diverso dal logico se il file lo riporta */
+    var ssccKo = false;
+    if (r.sscc && (!/^\d{18}$/.test(r.sscc) || cont[r.sscc] > 1)) ssccKo = true;
+    if (!r.sscc && (r.artF || r.collF > 0)) ssccKo = true;
+    if (r.ssccL !== null && r.ssccL !== r.sscc) ssccKo = true;
+    if (verificaSscc && ssccKo) x.difetti.push("sscc");
+    if (r.artF !== r.artL) x.difetti.push("art");
+    if (usaLotti && r.lottoF !== r.lottoL) x.difetti.push("lotto");
+    if (x.dColli !== 0 || (usaPezzi && x.dPezzi !== 0)) x.difetti.push("qta");
+    x.vuota = !r.artF && !r.artL && r.collF === 0 && r.collL === 0 && r.pzF === 0 && r.pzL === 0;
+    x.esito = x.difetti.length ? "ko" : "ok";
+    return x;
+  });
+
+  var k = { totale: righe.length, contate: 0, nc: 0, ncConMerce: 0, ok: 0, okVuote: 0, ko: 0,
+            dif: { ubic: 0, sscc: 0, art: 0, lotto: 0, qta: 0 },
+            collF: 0, collL: 0, collEcc: 0, collAmm: 0, pzF: 0, pzL: 0, pzEcc: 0, pzAmm: 0, ubConDelta: 0 };
+  var art = {};
+  function A(cod) { return art[cod] || (art[cod] = { cod: cod, collF: 0, collL: 0, pzF: 0, pzL: 0 }); }
+
+  righe.forEach(function (x) {
+    if (!x.contata) { k.nc++; if (x.conMerceLogica) k.ncConMerce++; return; }
+    k.contate++;
+    if (x.esito === "ok") { k.ok++; if (x.vuota) k.okVuote++; } else k.ko++;
+    x.difetti.forEach(function (d) { k.dif[d]++; });
+    k.collF += x.collF; k.collL += x.collL; k.pzF += x.pzF; k.pzL += x.pzL;
+    if (x.dColli > 0) k.collEcc += x.dColli; else k.collAmm += -x.dColli;
+    if (x.dPezzi > 0) k.pzEcc += x.dPezzi; else k.pzAmm += -x.dPezzi;
+    if (x.dColli !== 0 || (usaPezzi && x.dPezzi !== 0)) k.ubConDelta++;
+    /* fisico sull'articolo contato, logico sull'articolo a sistema: così un articolo sbagliato
+       genera eccedenza su uno e ammanco sull'altro */
+    if (x.artF || x.collF || x.pzF) { var a = A(x.artF || "(vuoto)"); a.collF += x.collF; a.pzF += x.pzF; }
+    if (x.artL || x.collL || x.pzL) { var b = A(x.artL || "(vuoto)"); b.collL += x.collL; b.pzL += x.pzL; }
+  });
+
+  var perArt = Object.keys(art).map(function (c) {
+    var a = art[c]; a.dColli = a.collF - a.collL; a.dPezzi = a.pzF - a.pzL; return a;
+  }).filter(function (a) { return a.dColli !== 0 || (usaPezzi && a.dPezzi !== 0); })
+    .sort(function (p, q) { return Math.abs(q.dColli) - Math.abs(p.dColli) || (p.cod < q.cod ? -1 : 1); });
+
+  return { righe: righe, kpi: k, perArt: perArt, usaPezzi: usaPezzi, usaLotti: usaLotti, verificaSscc: verificaSscc, haSsccLogico: recs.some(function (r) { return r.ssccL !== null; }) };
+}
+
+/* ---------- Interfaccia ---------- */
+function $(id) { return document.getElementById(id); }
+var LABEL_DIF = { ubic: "Ubicazione", sscc: "SSCC", art: "Articolo", lotto: "Lotto", qta: "Quantità" };
+
+function opzioni() {
+  return { modo: STATO.modo, pezzi: $("optPezzi").checked, lotti: $("optLotti").checked, ubic: $("optUbic").value };
+}
+
+function ricalcola() {
+  if (!STATO.records) return;
+  STATO.ris = analyze(STATO.records, opzioni());
+  disegna();
+}
+
+function disegna() {
+  var R = STATO.ris, k = R.kpi;
+  $("risultati").classList.remove("hidden");
+
+  var pct = function (n) { return k.contate ? (100 * n / k.contate) : 0; };
+  var pct1 = function (n) { return pct(n).toLocaleString("it-IT", { maximumFractionDigits: 1 }); };
+  $("kpis").innerHTML =
+    kpi("", k.totale, "Ubicazioni nel file", k.nc ? k.contate + " contate, " + k.nc + " non contate" : "tutte contate") +
+    kpi("ok", k.ok, "Pari", k.contate ? pct1(k.ok) + "% delle contate" + (k.okVuote ? " · " + k.okVuote + " vuote" : "") : "") +
+    kpi("ko", k.ko, "Difettose", k.contate ? pct1(k.ko) + "% delle contate" : "") +
+    kpi("nc", k.nc, "Non contate", k.ncConMerce ? k.ncConMerce + " con merce a sistema" : "");
+  $("bar").innerHTML = '<i class="b-ok" style="width:' + pct(k.ok) + '%"></i><i class="b-ko" style="width:' + pct(k.ko) + '%"></i>';
+  $("barLeg").textContent = "Verde: pari · Rosso: difettose (sul totale delle ubicazioni contate)";
+
+  /* difetti per tipo */
+  var h = '<table><tr><th>Tipo</th><th class="num">Ubicazioni</th></tr>';
+  ["ubic", "sscc", "art", "lotto", "qta"].forEach(function (d) {
+    if (d === "sscc" && !R.verificaSscc) return;
+    if (d === "lotto" && !R.usaLotti) return;
+    h += "<tr><td>" + LABEL_DIF[d] + '</td><td class="num">' + (k.dif[d] ? '<span class="diff">' + k.dif[d] + "</span>" : "0") + "</td></tr>";
+  });
+  h += "</table><p class='hint'>Una ubicazione può avere più difetti insieme." +
+       (!R.verificaSscc ? " In Picking l'SSCC non viene verificato." : R.haSsccLogico ? "" : " Il file non riporta l'SSCC logico: l'SSCC è controllato come presente, di 18 cifre e non duplicato.") + "</p>";
+  $("difetti").innerHTML = h;
+
+  /* delta */
+  var d = '<table><tr><th></th><th class="num">Fisico</th><th class="num">Logico</th><th class="num">Delta netto</th><th class="num">Eccedenze</th><th class="num">Ammanchi</th></tr>';
+  d += rigaDelta("Colli", k.collF, k.collL, k.collEcc, k.collAmm);
+  if (R.usaPezzi) d += rigaDelta("Pezzi", k.pzF, k.pzL, k.pzEcc, k.pzAmm);
+  d += "</table><p class='hint'>" + k.ubConDelta + " ubicazioni con differenza di quantità. Eccedenza = fisico maggiore del logico, ammanco = fisico minore.</p>";
+  $("delta").innerHTML = d;
+
+  disegnaRighe();
+  disegnaArticoli();
+}
+
+function kpi(cls, n, l, d) {
+  return '<div class="kpi ' + cls + '"><div class="n">' + n + '</div><div class="l">' + esc(l) + '</div><div class="d">' + esc(d || "") + "</div></div>";
+}
+function rigaDelta(nome, f, l, e, a) {
+  return "<tr><td>" + nome + '</td><td class="num">' + fmt(f) + '</td><td class="num">' + fmt(l) + '</td><td class="num">' +
+    fmtDelta(f - l) + '</td><td class="num">' + (e ? '<span class="pos">+' + fmt(e) + "</span>" : "0") +
+    '</td><td class="num">' + (a ? '<span class="neg">−' + fmt(a) + "</span>" : "0") + "</td></tr>";
+}
+
+function righeFiltrate() {
+  var q = norm($("cerca").value), f = STATO.filtro;
+  return STATO.ris.righe.filter(function (x) {
+    if (f !== "tutte" && x.esito !== f) return false;
+    if (!q) return true;
+    return norm([x.ubF, x.ubL, x.sscc, x.artF, x.artL, x.lottoF, x.lottoL].join(" ")).indexOf(q) >= 0;
+  });
+}
+
+function disegnaRighe() {
+  var R = STATO.ris, lista = righeFiltrate(), pz = R.usaPezzi;
+  var h = "<thead><tr><th>Riga</th><th>Ubicazione</th>" + (R.verificaSscc ? "<th>SSCC</th>" : "") + "<th>Articolo</th>" + (R.usaLotti ? "<th>Lotto</th>" : "") +
+          '<th class="num">Colli fisici</th><th class="num">Colli logici</th><th class="num">Δ colli</th>' +
+          (pz ? '<th class="num">Pezzi fisici</th><th class="num">Pezzi logici</th><th class="num">Δ pezzi</th>' : "") +
+          "<th>Esito</th></tr></thead><tbody>";
+  lista.slice(0, MAX_RIGHE).forEach(function (x) {
+    var dif = function (c) { return x.difetti.indexOf(c) >= 0; };
+    var ub = esc(x.ubF) + (dif("ubic") ? '<div class="diff">logica: ' + esc(x.ubL) + "</div>" : "");
+    var ar = esc(x.artF || "—") + (dif("art") ? '<div class="diff">logico: ' + esc(x.artL || "—") + "</div>" : "");
+    var ss = esc(x.sscc || "—") + (dif("sscc") ? '<div class="diff">' + esc(motivoSscc(x)) + "</div>" : "");
+    var lotto = esc(x.lottoF || "—") + (x.contata && x.lottoF !== x.lottoL ? '<div class="diff">logico: ' + esc(x.lottoL || "—") + "</div>" : "");
+    var badge = x.esito === "nc" ? '<span class="badge nc">Non contata</span>'
+      : x.esito === "ok" ? '<span class="badge ok">Pari' + (x.vuota ? " · vuota" : "") + "</span>"
+      : x.difetti.map(function (d) { return '<span class="badge ko">' + LABEL_DIF[d] + "</span>"; }).join("");
+    h += '<tr class="' + x.esito + '"><td>' + x.riga + "</td><td>" + ub + "</td>" + (R.verificaSscc ? "<td>" + ss + "</td>" : "") + "<td>" + ar + "</td>" + (R.usaLotti ? "<td>" + lotto + "</td>" : "") +
+      '<td class="num">' + (x.contata ? fmt(x.collF) : "—") + '</td><td class="num">' + fmt(x.collL) + '</td><td class="num">' + (x.contata ? fmtDelta(x.dColli) : "") + "</td>" +
+      (pz ? '<td class="num">' + (x.contata ? fmt(x.pzF) : "—") + '</td><td class="num">' + fmt(x.pzL) + '</td><td class="num">' + (x.contata ? fmtDelta(x.dPezzi) : "") + "</td>" : "") +
+      "<td>" + badge + "</td></tr>";
+  });
+  $("tab").innerHTML = h + "</tbody>";
+  $("conteggio").textContent = lista.length + " ubicazioni" + (lista.length > MAX_RIGHE ? " (mostrate le prime " + MAX_RIGHE + ": usa i filtri o la ricerca, oppure esporta in Excel)" : "");
+}
+
+/* motivo del difetto SSCC, per mostrarlo accanto al valore */
+function motivoSscc(x) {
+  if (x.ssccL !== null && x.ssccL !== x.sscc) return "logico: " + (x.ssccL || "—");
+  if (!x.sscc) return "SSCC mancante";
+  if (!/^\d{18}$/.test(x.sscc)) return "non di 18 cifre";
+  return "SSCC duplicato";
+}
+
+function disegnaArticoli() {
+  var R = STATO.ris, pz = R.usaPezzi;
+  var h = "<thead><tr><th>Articolo</th><th class=\"num\">Colli fisici</th><th class=\"num\">Colli logici</th><th class=\"num\">Δ colli</th>" +
+          (pz ? '<th class="num">Pezzi fisici</th><th class="num">Pezzi logici</th><th class="num">Δ pezzi</th>' : "") + "</tr></thead><tbody>";
+  R.perArt.forEach(function (a) {
+    h += "<tr><td>" + esc(a.cod) + '</td><td class="num">' + fmt(a.collF) + '</td><td class="num">' + fmt(a.collL) + '</td><td class="num">' + fmtDelta(a.dColli) + "</td>" +
+      (pz ? '<td class="num">' + fmt(a.pzF) + '</td><td class="num">' + fmt(a.pzL) + '</td><td class="num">' + fmtDelta(a.dPezzi) + "</td>" : "") + "</tr>";
+  });
+  if (!R.perArt.length) h += '<tr><td colspan="7">Nessun articolo con delta: fisico e logico coincidono.</td></tr>';
+  $("tabArt").innerHTML = h + "</tbody>";
+}
+
+/* ---------- Esportazione Excel ---------- */
+/* Esporta le righe ora visibili in tabella (filtro e ricerca inclusi) con le stesse colonne opzionali. */
+function esporta() {
+  if (typeof XLSX === "undefined") { mostra("err", "Libreria Excel non caricata: impossibile esportare."); return; }
+  var R = STATO.ris, pz = R.usaPezzi, lt = R.usaLotti, vs = R.verificaSscc, k = R.kpi;
+  var intest = ["Riga", "Ubicazione fisica", "Ubicazione logica"].concat(vs ? ["SSCC"] : [], ["Articolo fisico", "Articolo logico"],
+    lt ? ["Lotto fisico", "Lotto logico"] : [], ["Colli fisici", "Colli logici", "Delta colli"],
+    pz ? ["Pezzi fisici", "Pezzi logici", "Delta pezzi"] : [], ["Esito", "Difetti"]);
+  var righe = righeFiltrate().map(function (x) {
+    return [x.riga, x.ubF, x.ubL].concat(vs ? [x.sscc] : [], [x.artF, x.artL], lt ? [x.lottoF, x.lottoL] : [],
+      [x.contata ? x.collF : "", x.collL, x.contata ? x.dColli : ""],
+      pz ? [x.contata ? x.pzF : "", x.pzL, x.contata ? x.dPezzi : ""] : [],
+      [x.esito === "nc" ? "Non contata" : x.esito === "ok" ? "Pari" : "Difettosa", x.difetti.map(function (d) { return LABEL_DIF[d]; }).join(", ")]);
+  });
+  var riep = [["Verifica", STATO.modo === "stock" ? "Stock" : "Picking"], ["File", STATO.fileName],
+    ["Ubicazioni", k.totale], ["Contate", k.contate], ["Non contate", k.nc], ["Pari", k.ok], ["Difettose", k.ko],
+    ["Difetti ubicazione", k.dif.ubic]].concat(vs ? [["Difetti SSCC", k.dif.sscc]] : [], [["Difetti articolo", k.dif.art]],
+    lt ? [["Difetti lotto", k.dif.lotto]] : [], [["Difetti quantità", k.dif.qta],
+    ["Colli fisici", k.collF], ["Colli logici", k.collL], ["Delta colli", k.collF - k.collL],
+    ["Eccedenze colli", k.collEcc], ["Ammanchi colli", k.collAmm]]);
+  if (pz) riep.push(["Pezzi fisici", k.pzF], ["Pezzi logici", k.pzL], ["Delta pezzi", k.pzF - k.pzL], ["Eccedenze pezzi", k.pzEcc], ["Ammanchi pezzi", k.pzAmm]);
+  var art = [["Articolo", "Colli fisici", "Colli logici", "Delta colli"].concat(pz ? ["Pezzi fisici", "Pezzi logici", "Delta pezzi"] : [])]
+    .concat(R.perArt.map(function (a) { return [a.cod, a.collF, a.collL, a.dColli].concat(pz ? [a.pzF, a.pzL, a.dPezzi] : []); }));
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(riep), "Riepilogo");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([intest].concat(righe)), "Dettaglio");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(art), "Per articolo");
+  XLSX.writeFile(wb, "verifica_" + STATO.modo + "_" + new Date().toISOString().slice(0, 10) + ".xlsx");
+}
+
+/* ---------- Stampa scheda di controllo ---------- */
+/* Solo le ubicazioni difettose, nell'ordine del file: ubicazione, articolo, delta colli (e pezzi se attivi).
+   Non dipende dai filtri o dalla ricerca della tabella. */
+function stampaScheda() {
+  if (!STATO.ris) return;
+  var R = STATO.ris, k = R.kpi, pz = R.usaPezzi;
+  var ko = R.righe.filter(function (x) { return x.esito === "ko"; });
+  if (!ko.length) { mostra("info", "Nessuna ubicazione difettosa: non c'è nulla da stampare."); return; }
+  mostra("", "");
+  var sg = function (n) { return n === 0 ? "0" : (n > 0 ? "+" : "\u2212") + fmt(Math.abs(n)); };
+  var h = "<h1>Scheda Riconta</h1>" +
+    '<p class="inv">Inventario: <b>' + esc(STATO.nomeInv || "\u2014") + "</b></p>" +
+    '<p class="meta">Verifica ' + (STATO.modo === "stock" ? "Stock" : "Picking") + " \u00b7 File: " + esc(STATO.fileName) + " \u00b7 " + new Date().toLocaleDateString("it-IT") +
+    " \u00b7 " + ko.length + (ko.length === 1 ? " ubicazione da controllare su " : " ubicazioni da controllare su ") + k.contate + " contate</p>" +
+    "<table><thead><tr><th>Ubicazione</th><th>Articolo</th><th>Difetto</th><th class=\"num\">\u0394 colli</th>" +
+    (pz ? '<th class="num">\u0394 pezzi</th>' : "") + '<th class="note">Note / ricontrollo</th></tr></thead><tbody>';
+  ko.forEach(function (x) {
+    var ub = esc(x.ubF) + (x.difetti.indexOf("ubic") >= 0 ? '<div class="sis">a sistema: ' + esc(x.ubL) + "</div>" : "");
+    var ar = esc(x.artF || "\u2014") + (x.difetti.indexOf("art") >= 0 ? '<div class="sis">a sistema: ' + esc(x.artL || "\u2014") + "</div>" : "");
+    h += "<tr><td>" + ub + "</td><td>" + ar + "</td><td>" + x.difetti.map(function (d) { return LABEL_DIF[d]; }).join(", ") + '</td><td class="num">' + sg(x.dColli) + "</td>" +
+         (pz ? '<td class="num">' + sg(x.dPezzi) + "</td>" : "") + "<td></td></tr>";
+  });
+  $("stampa").innerHTML = h + "</tbody></table>";
+  window.print();
+}
+
+/* ---------- Caricamento file ---------- */
+function mostra(tipo, testo) {
+  $("msg").innerHTML = testo ? '<div class="msg ' + tipo + '">' + esc(testo) + "</div>" : "";
+}
+
+function leggiFile(file) {
+  mostra("", "");
+  if (typeof XLSX === "undefined") { mostra("err", "Libreria Excel (SheetJS) non caricata: controlla la connessione e ricarica la pagina."); return; }
+  var fr = new FileReader();
+  fr.onerror = function () { mostra("err", "Impossibile leggere il file."); };
+  fr.onload = function (e) {
+    try {
+      var wb = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      var aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
+      STATO.records = parseSheet(aoa);
+      /* il nome inventario è uguale su tutte le righe: si prende il primo valorizzato */
+      STATO.nomeInv = (STATO.records.filter(function (r) { return r.nome; })[0] || { nome: "" }).nome;
+      STATO.fileName = file.name;
+      $("fileName").textContent = file.name + " · " + STATO.records.length + " righe";
+      ricalcola();
+    } catch (err) {
+      STATO.records = null;
+      $("risultati").classList.add("hidden");
+      mostra("err", err.message || String(err));
+    }
+  };
+  fr.readAsArrayBuffer(file);
+}
+
+/* ---------- Eventi ---------- */
+function impostaModo(m) {
+  STATO.modo = m;
+  Array.prototype.forEach.call(document.querySelectorAll("#modoSeg button"), function (b) { b.classList.toggle("on", b.getAttribute("data-modo") === m); });
+  $("modoHint").textContent = HINT[m];
+  $("optPezziWrap").classList.toggle("hidden", m !== "picking");
+  ricalcola();
+}
+
+function avvia() {
+  if (typeof XLSX === "undefined") {
+    $("libErr").textContent = "La libreria SheetJS (lettura Excel) non è stata caricata dal CDN: la pagina non può leggere i file finché non c'è connessione.";
+    $("libErr").classList.remove("hidden");
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("#modoSeg button"), function (b) {
+    b.addEventListener("click", function () { impostaModo(b.getAttribute("data-modo")); });
+  });
+  var drop = $("drop"), inp = $("file");
+  drop.addEventListener("click", function () { inp.click(); });
+  drop.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") inp.click(); });
+  inp.addEventListener("change", function () { if (inp.files[0]) { leggiFile(inp.files[0]); inp.value = ""; } });
+  ["dragenter", "dragover"].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("over"); }); });
+  ["dragleave", "drop"].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("over"); }); });
+  drop.addEventListener("drop", function (e) { if (e.dataTransfer.files[0]) leggiFile(e.dataTransfer.files[0]); });
+  $("optPezzi").addEventListener("change", ricalcola);
+  $("optUbic").addEventListener("change", ricalcola);
+  $("optLotti").addEventListener("change", ricalcola);
+  $("cerca").addEventListener("input", function () { if (STATO.ris) disegnaRighe(); });
+  $("btnExp").addEventListener("click", esporta);
+  $("btnStampa").addEventListener("click", stampaScheda);
+  Array.prototype.forEach.call(document.querySelectorAll(".chip"), function (c) {
+    c.addEventListener("click", function () {
+      STATO.filtro = c.getAttribute("data-f");
+      Array.prototype.forEach.call(document.querySelectorAll(".chip"), function (o) { o.classList.toggle("on", o === c); });
+      if (STATO.ris) disegnaRighe();
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(".tabs button"), function (b) {
+    b.addEventListener("click", function () {
+      var t = b.getAttribute("data-tab");
+      Array.prototype.forEach.call(document.querySelectorAll(".tabs button"), function (o) { o.classList.toggle("on", o === b); });
+      $("tabRighe").classList.toggle("hidden", t !== "righe");
+      $("tabArticoli").classList.toggle("hidden", t !== "articoli");
+    });
+  });
+  $("modoHint").textContent = HINT.stock;
+}
+avvia();
+</script>
+</body>
+</html>
