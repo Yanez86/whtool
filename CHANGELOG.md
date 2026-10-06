@@ -15,6 +15,12 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
 - 1.0 — sostituisce le macro `GeneraInventario` e `GeneraFoglioControllo`: lista di spunta stampabile con
   barcode Code 39 disegnati, foglio di controllo corridoi, filtri Picking e Piano modificabili.
 
+## Verifica inventario — 1.0 (06/10/2026)
+- 1.0 — versione iniziale: confronto fisico/logico dell'export di inventario, con scelta Stock o Picking.
+  Controlla ubicazione, SSCC (solo Stock), articolo e quantità in colli; pezzi (solo Picking) e lotti sono
+  opzionali e spenti di default. Riepilogo pari/difettose/non contate, delta (eccedenze e ammanchi) per ubicazione
+  e per articolo, scheda *Riconta* stampabile con le sole ubicazioni difettose ed export Excel.
+
 ## Spacchetta borderò — 1.3 (08/09/2026)
 - 1.3 — la prima pagina di ogni PDF apre sempre un pacchetto: se l'OCR non la riconosce si usano i dati letti
   e un segnaposto `DA VERIFICARE` per quelli mancanti, con avviso e marcatura `BORDERO_FORZATO` nel CSV.
@@ -26,5 +32,7 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
   i dati lingua italiani non si scaricano.
 - 1.0 — versione iniziale: porting nel browser di `split_bordero.py`.
 
-## Home — 1.3 (08/09/2026)
+## Home — 1.4 (06/10/2026)
+- 1.4 — scheda e voce di menu per Verifica inventario.
+
 La versione della home segue l'ultimo aggiornamento del sito.
