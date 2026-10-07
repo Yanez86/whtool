@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etichette packing list</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#15181d; --muted:#6b7280;
+    --line:#e3e6ea; --accent:#1f6feb; --accent-soft:#e8f0fe;
+    --ok:#0f7b45; --ok-soft:#e6f4ec;
+    --warn:#8a5a00; --warn-soft:#fff5e0;
+    --err:#b42318; --err-soft:#fdeceb;
+    --head:#f7f8fa; --zebra:#fbfcfd;
+    --radius:10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1216; --panel:#171b21; --ink:#e8eaed; --muted:#9aa3af;
+      --line:#282e37; --accent:#4c8dff; --accent-soft:#1b2740;
+      --ok:#4ade80; --ok-soft:#14301f;
+      --warn:#fbbf24; --warn-soft:#33260c;
+      --err:#fca5a5; --err-soft:#3a1614;
+      --head:#1d222a; --zebra:#1b2028;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;}
+
+  /* barra di navigazione */
+  .topbar{background:var(--panel);border-bottom:1px solid var(--line)}
+  .topbar .inner{max-width:1180px;margin:0 auto;padding:0 20px;display:flex;align-items:center;
+    gap:18px;height:52px;flex-wrap:wrap}
+  .brand{font-weight:700;letter-spacing:-.01em;color:var(--ink);text-decoration:none;white-space:nowrap}
+  .brand span{color:var(--muted);font-weight:400}
+  .navlinks{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+  .navlinks a{color:var(--muted);text-decoration:none;padding:6px 12px;border-radius:8px;white-space:nowrap}
+  .navlinks a:hover{background:var(--accent-soft);color:var(--ink)}
+  .navlinks a.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 64px}
+  header h1{margin:0 0 4px;font-size:22px;letter-spacing:-.01em}
+  header p{margin:0 0 4px;color:var(--muted);max-width:78ch}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px;margin-top:20px}
+  .panel h2{margin:0 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+
+  /* dropzone */
+  #drop{border:2px dashed var(--line);border-radius:var(--radius);background:var(--panel);
+    padding:40px 20px;text-align:center;cursor:pointer;transition:.15s;margin-top:20px}
+  #drop:hover,#drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  #drop strong,#drop .big{display:block;font-size:15px;font-weight:600;margin-bottom:4px}
+  #drop span,#drop .small{color:var(--muted);font-size:13px}
+  input[type=file]{display:none}
+
+  /* pulsanti */
+  button{font:inherit;border-radius:8px;border:1px solid var(--line);background:var(--panel);
+    color:var(--ink);padding:8px 14px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.primary:hover{filter:brightness(1.08)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  button:disabled:hover{border-color:var(--line)}
+  .btns,.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+
+  /* liste campi con checkbox */
+  .row{display:flex;gap:16px;flex-wrap:wrap}
+  .col{flex:1 1 320px;min-width:280px}
+  .fieldlist{border:1px solid var(--line);border-radius:8px;max-height:300px;overflow:auto;background:var(--bg)}
+  .fieldlist label{display:flex;align-items:center;gap:8px;padding:6px 10px;
+    border-bottom:1px solid var(--line);cursor:pointer}
+  .fieldlist label:last-child{border-bottom:none}
+  .fieldlist label:hover{background:var(--accent-soft)}
+  .fieldlist input{margin:0;flex:none}
+  .fieldlist .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fieldlist .tag{margin-left:auto;font-size:11px;color:var(--muted);flex:none}
+  .search{width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:8px;
+    background:var(--panel);color:var(--ink);margin-bottom:8px}
+  select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel);color:var(--ink)}
+
+  /* riquadri file (report rotture) */
+  .slots{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+  @media(max-width:680px){.slots{grid-template-columns:1fr}}
+  .slot{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);padding:12px 14px}
+  .slot .lab{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .slot .fname{margin-top:4px;font-weight:600;word-break:break-all}
+  .slot .meta{color:var(--muted);font-size:12px;margin-top:2px}
+  .slot.empty .fname{color:var(--muted);font-weight:400}
+
+  /* riquadri numerici */
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:680px){.cards{grid-template-columns:repeat(2,1fr)}}
+  .card{border:1px solid var(--line);border-radius:var(--radius);padding:14px;background:var(--bg)}
+  .card .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .card .v{font-size:22px;font-weight:650;margin-top:4px;font-variant-numeric:tabular-nums}
+
+  /* etichette e messaggi */
+  .pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px;
+    background:var(--ok-soft);color:var(--ok)}
+  .meta,.hint{color:var(--muted);font-size:13px}
+  .hint{margin-top:10px;font-size:12px}
+  .msg{border-radius:8px;padding:10px 14px;margin-top:12px;font-size:13px;border:1px solid transparent}
+  .msg.err,.err{background:var(--err-soft);color:var(--err);border-color:var(--err)}
+  .msg.warn{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
+
+  /* tabelle */
+  .tablewrap{margin-top:16px;border:1px solid var(--line);border-radius:var(--radius);
+    overflow:auto;max-height:65vh;background:var(--panel)}
+  table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+  th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{position:sticky;top:0;background:var(--head);z-index:1;font-size:11px;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--muted);font-weight:700}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  td.desc{white-space:normal;min-width:240px}
+  tbody tr:nth-child(even){background:var(--zebra)}
+  tfoot td{position:sticky;bottom:0;background:var(--head);font-weight:700;
+    border-top:2px solid var(--line);border-bottom:none}
+
+  .hidden{display:none}
+  /* ---------- tabella motivazioni e campi ---------- */
+  .fields{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+  .fields label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);
+    font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+  .fields input,table.mot input{font:inherit;padding:7px 10px;border:1px solid var(--line);
+    border-radius:8px;background:var(--panel);color:var(--ink);text-transform:none;letter-spacing:0;
+    font-weight:400}
+  .fields input{min-width:150px}
+  table.mot{margin-top:4px}
+  table.mot th,table.mot td{white-space:normal}
+  table.mot th{position:static}
+  table.mot td{padding:5px 8px;vertical-align:middle}
+  table.mot input{width:100%}
+  table.mot td.cnt{color:var(--muted);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  table.mot td.del{width:40px;text-align:center}
+  table.mot tbody tr:nth-child(even){background:transparent}
+  button.x{padding:4px 9px;line-height:1}
+  .warnrow{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .warnrow button{margin-left:auto}
+
+  /* ---------- anteprima e stampa delle etichette ---------- */
+  .doc{background:#fff;color:#000;max-width:1180px;margin:20px auto;padding:16px 18px;
+    border:1px solid var(--line);border-radius:var(--radius)}
+  .doctop{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px;
+    font-size:13px;color:#444}
+  .doctop select{background:#fff;color:#000;border:1px solid #bbb}
+  #docLabels{--pv:.65;--lw:163mm;--lh:252mm}
+  .pvgrid{display:flex;flex-wrap:wrap;gap:18px}
+  .pv{width:calc(var(--lw) * var(--pv));flex:none}
+  .pvbox{width:calc(var(--lw) * var(--pv));height:calc(var(--lh) * var(--pv));
+    outline:1px solid #b9b9b9;background:#fff}
+  .page{width:var(--lw);transform:scale(var(--pv));transform-origin:0 0}
+  .pvcap{margin-top:6px;font-size:12px;color:#333;font-family:Arial,Helvetica,sans-serif}
+
+  /* l'etichetta riproduce MODELLO.xlsx: A4 verticale, scala 73%, testo rosso */
+  table.label{width:163mm;border-collapse:collapse;table-layout:fixed;background:#fff;color:#ff0000;
+    font-family:Arial,Helvetica,sans-serif;font-weight:700;margin:0 auto}
+  .label td{border:.42mm solid #000;padding:0 1mm;vertical-align:middle;text-align:center;
+    overflow:hidden;line-height:1.1;font-size:8.76pt;background:#fff;color:#ff0000}
+  .label .fit{overflow:hidden;white-space:nowrap}
+  .label tr.title td{height:13.3mm;border-width:.6mm;font:900 26.3pt "Arial Black",Arial,sans-serif;
+    padding:0}
+  .label tr.dati td{height:8.69mm;vertical-align:top;font-size:10.2pt;padding-top:.8mm}
+  .label tr.dati td.l{text-align:left}
+  .label tr.dati td.nor{border-right-width:0}
+  .label tr.dati td.nol{border-left-width:0}
+  .label tr.nb td{height:12.17mm;font-size:10.2pt}
+  .label tr.vb td{height:6.18mm;font-size:10.2pt}
+  .label td.cy{background:#ccffff}
+  .label tr.hdr td{height:12.36mm}
+  .label tr.d td{height:var(--rh,6.18mm);font-size:var(--fs,8.76pt);padding:0 1mm}
+  .label tr.d td.ds{text-align:left}
+  .label tr.sp td{border:0;height:4.25mm;padding:0}
+  .label tr.tot td{height:4.25mm;font-size:8.76pt;padding:0 1mm}
+  .label tr.sp2 td{border:0;height:4.06mm;padding:0}
+  .label tr.tear td{border:0;border-bottom:.42mm dashed #000;height:10.05mm;padding:0}
+  .label tr.sig td{border:0;height:4.64mm;font-size:7.3pt;text-align:left;padding:0}
+  .label tr.sig td.vf{font-size:10.2pt;font-weight:400;text-align:center}
+  .label tr.sig td.okb{border:.42mm solid #000;color:#000;font-size:10.2pt;font-weight:400}
+
+  /* ---------- stampa ---------- */
+  @media print{
+    @page{size:A4 portrait;margin:10mm 8mm}
+    .topbar,.noprint{display:none !important}
+    body{background:#fff}
+    .doc{max-width:none;margin:0;padding:0;border:none;border-radius:0}
+    .pvgrid{display:block}
+    .pv{width:auto;height:274mm;break-after:page;page-break-after:always}
+    .pv:last-child{break-after:auto;page-break-after:auto}
+    .pvbox{width:100%;height:100%;overflow:visible;outline:none;display:flex;align-items:center;
+      justify-content:center}
+    .page{transform:none;width:163mm}
+    .pvcap,.doctop{display:none !important}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+
+  /* piè di pagina con versione */
+  .ver{max-width:1180px;margin:0 auto;padding:14px 20px 28px;color:var(--muted);font-size:12px;
+    border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}
+  .ver strong{font-weight:600;color:var(--ink)}
+  .ver .sep{opacity:.5}
+  @media print{ .ver{display:none !important} }
+</style>
+</head>
+<body>
+  <div class="topbar"><div class="inner">
+    <a class="brand" href="index.html">Tool Magazzino</a>
+    <nav class="navlinks">
+      <a href="giacenze.html">Aggregatore giacenze</a>
+      <a href="rotture.html">Report rotture / L&amp;F</a>
+      <a href="inventario.html">Inventario</a>
+      <a href="verifica-inventario.html">Verifica inventario</a>
+      <a href="bordero.html">Borderò</a>
+      <a href="etichette.html" class="active">Etichette</a>
+    </nav>
+  </div></div>
+
+<div class="wrap noprint">
+  <header>
+    <h1>Etichette packing list</h1>
+    <p>Trascina l'estratto <strong>Giacenza UdC</strong>: ottieni una etichetta A4 per ogni coppia <strong>Area + Versione</strong> (il numero bancale), con la motivazione che corrisponde all'area. Tutto avviene nel browser, nessun dato viene caricato online.</p>
+  </header>
+
+  <div id="drop">
+    <strong>Trascina qui il file di giacenza</strong>
+    <span>oppure clicca per selezionarlo — .xlsx, .xlsm, .xls</span>
+    <input type="file" id="file" accept=".xlsx,.xlsm,.xls">
+  </div>
+  <div id="messages"></div>
+
+  <div id="config" class="panel hidden">
+    <h2>Motivazioni per area</h2>
+    <div class="meta" id="fileinfo"></div>
+    <div class="tablewrap" style="max-height:none;margin-top:12px">
+      <table class="mot">
+        <thead><tr><th>Area (come nel file)</th><th>Motivazione</th><th style="width:110px">Codice</th>
+          <th class="num" style="width:110px">Righe nel file</th><th></th></tr></thead>
+        <tbody id="motBody"></tbody>
+      </table>
+    </div>
+    <div class="btns">
+      <button id="motAdd">Aggiungi area</button>
+      <button id="motReset">Ripristina predefinite</button>
+    </div>
+    <div class="hint">Ogni area del file che compare in questa tabella genera le sue etichette; il confronto ignora maiuscole e spazi doppi, ma <strong>ROTTURE</strong> e <strong>ROTTURE 262</strong> restano aree diverse. La motivazione va nella casella “motivazione” dell'etichetta, il codice accanto e nella colonna CAUS. di ogni riga.</div>
+
+    <h2 style="margin-top:22px">Intestazione dell'etichetta</h2>
+    <div class="fields">
+      <label>Data <input id="fData" type="text" size="12"></label>
+      <label>Codice plant <input id="fPlant" type="text" size="8" value="6303"></label>
+      <label>Verbale nr <input id="fVerb" type="text" size="14" placeholder="vuoto: da compilare a mano"></label>
+    </div>
+  </div>
+
+  <div id="warns"></div>
+
+  <div id="out" class="panel hidden">
+    <h2>Risultato</h2>
+    <div class="cards">
+      <div class="card"><div class="k">Etichette</div><div class="v" id="cEtich">0</div></div>
+      <div class="card"><div class="k">Righe articolo</div><div class="v" id="cRighe">0</div></div>
+      <div class="card"><div class="k">Colli totali</div><div class="v" id="cColli">0</div></div>
+      <div class="card"><div class="k">Righe del file escluse</div><div class="v" id="cEscl">0</div></div>
+    </div>
+    <div class="btns">
+      <button class="primary" id="print">Stampa le etichette</button>
+      <button id="again">Carica un altro file</button>
+    </div>
+    <div class="hint">La stampa esce in A4 verticale, una etichetta per pagina. Per il PDF usa “Salva come PDF” nella finestra di stampa del browser. Le righe di ogni etichetta sono una per articolo, con le quantità sommate e ordinate per codice; oltre 27 articoli le righe si abbassano per restare in una sola pagina.</div>
+  </div>
+</div>
+
+<!-- ============ etichette (anteprima e stampa) ============ -->
+<div id="docLabels" class="doc hidden">
+  <div class="doctop">
+    <span id="docCount"></span>
+    <label style="margin-left:auto">Anteprima
+      <select id="pvScale">
+        <option value=".5">piccola</option>
+        <option value=".65" selected>media</option>
+        <option value=".85">grande</option>
+        <option value="1">reale</option>
+      </select>
+    </label>
+  </div>
+  <div id="labels" class="pvgrid"></div>
+</div>
+
+<footer class="ver noprint">
+  <span><strong>Etichette packing list</strong> <span class="sep">·</span> versione 1.0</span>
+  <span class="sep">·</span>
+  <span>aggiornato il 07/10/2026</span>
+</footer>
+
+<script>
+"use strict";
+
+/* =========================================================
+   Etichette packing list — una etichetta per ogni coppia
+   Area + Versione (numero bancale) dell'estratto Giacenza UdC,
+   secondo il layout di MODELLO.xlsx
+   ========================================================= */
+
+/* ---------- costanti ---------- */
+const PALLET     = {cod:"82", desc:"BANCALE EPAL 80X120", q:1};   // riga fissa in fondo all'etichetta
+const RIGHE_STD  = 27;      // righe articolo del modello
+const RH_STD     = 6.18;    // altezza riga del modello, in mm (24 pt a scala 73%)
+const FS_STD     = 8.76;    // corpo carattere delle righe, in pt (12 pt a scala 73%)
+const DEFAULT_MOT = [
+  {area:"RITIRI COCA", mot:"RITIRI CLIENTE",       cod:"R6"},
+  {area:"ROTTURE 262", mot:"ROTTURE RIFORNIMENTO", cod:"PR"},
+  {area:"ROTTURE",     mot:"ROTTURE MAGAZZINO",    cod:"WI"},
+  {area:"BL5",         mot:"BLOCCO SCADENZA",      cod:"WF"},
+  {area:"BL3",         mot:"BLOCCO QUALITA'",      cod:"WP"}
+];
+/* larghezze delle 10 colonne del modello (unità Excel), in proporzione */
+const COLW = [12.71, 7.71, 7.86, 8.5, 28.14, 13.29, 11, 8.5, 8.5, 15];
+
+/* ---------- utility ---------- */
+const $ = id => document.getElementById(id);
+const norm = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g,"")
+                  .replace(/\s+/g," ").trim().toLowerCase();
+const clean = v => String(v ?? "").replace(/\s+/g," ").trim();
+const esc = s => String(s ?? "").replace(/[&<>"]/g,
+                  c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pad = (v,n) => String(v).padStart(n,"0");
+const nat = (a,b) => String(a).localeCompare(String(b), "it", {numeric:true, sensitivity:"base"});
+const fmtQ = n => Number.isInteger(n) ? String(n) : n.toLocaleString("it-IT",{maximumFractionDigits:3});
+const fmtInt = n => n.toLocaleString("it-IT");
+function oggi(){
+  const d = new Date();
+  return pad(d.getDate(),2) + "/" + pad(d.getMonth()+1,2) + "/" + d.getFullYear();
+}
+function msg(text, kind){
+  const d = document.createElement("div");
+  d.className = "msg " + (kind || "warn");
+  d.textContent = text;
+  $("messages").appendChild(d);
+}
+function clearMsg(){ $("messages").innerHTML = ""; }
+
+/* ---------- stato ---------- */
+let ROWS = [];                                   // righe utili del file
+let FNAME = "";
+let MOT = DEFAULT_MOT.map(x => ({...x}));        // tabella motivazioni (modificabile)
+$("fData").value = oggi();
+
+/* ---------- lettura file ---------- */
+$("drop").addEventListener("click", () => $("file").click());
+$("file").addEventListener("change", e => { if(e.target.files[0]) load(e.target.files[0]); });
+["dragenter","dragover"].forEach(ev =>
+  $("drop").addEventListener(ev, e => { e.preventDefault(); $("drop").classList.add("over"); }));
+["dragleave","drop"].forEach(ev =>
+  $("drop").addEventListener(ev, e => { e.preventDefault(); $("drop").classList.remove("over"); }));
+$("drop").addEventListener("drop", e => { if(e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); });
+window.addEventListener("dragover", e => e.preventDefault());
+window.addEventListener("drop", e => e.preventDefault());
+
+const WANT = {
+  area: ["area"],
+  art:  ["articolo"],
+  desc: ["descrizione articolo"],
+  ver:  ["versione"],
+  q:    ["quantita stoccata"],
+  um:   ["u.m.", "u.m", "um"]
+};
+const NOMI = {area:"Area", art:"Articolo", desc:"Descrizione Articolo", ver:"Versione", q:"Quantità Stoccata"};
+
+/* riga di intestazione: quella con più nomi attesi nelle prime 30 righe (nei file reali è la 4) */
+function findHeaderRow(aoa){
+  let best = -1, bestScore = 0;
+  const names = [].concat.apply([], Object.keys(WANT).map(k => WANT[k]));
+  for(let i = 0; i < Math.min(aoa.length, 30); i++){
+    const set = new Set((aoa[i] || []).map(norm));
+    let sc = 0;
+    names.forEach(n => { if(set.has(n)) sc++; });
+    if(sc > bestScore){ bestScore = sc; best = i; }
+  }
+  return best >= 0 ? best : 3;
+}
+
+function load(file){
+  clearMsg();
+  FNAME = file.name;
+  const fr = new FileReader();
+  fr.onload = ev => {
+    try{
+      const wb = XLSX.read(new Uint8Array(ev.target.result), {type:"array"});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, blankrows:true, raw:true});
+      parse(aoa, wb.SheetNames[0]);
+    }catch(err){
+      msg("Non riesco a leggere il file: " + err.message, "err");
+    }
+  };
+  fr.onerror = () => msg("Errore di lettura del file.", "err");
+  fr.readAsArrayBuffer(file);
+}
+
+function toNum(v){
+  if(typeof v === "number") return v;
+  if(typeof v === "string" && v.trim() !== ""){
+    const n = parseFloat(v.trim().replace(",", "."));
+    return isNaN(n) ? NaN : n;
+  }
+  return NaN;
+}
+
+let STAT = {}; // conteggi fatti in lettura
+
+function parse(aoa, sheetName){
+  const h = findHeaderRow(aoa);
+  const header = (aoa[h] || []).map(norm);
+  const idx = {};
+  Object.keys(WANT).forEach(k => {
+    idx[k] = -1;
+    for(let c = 0; c < header.length; c++){
+      if(WANT[k].indexOf(header[c]) > -1){ idx[k] = c; break; }   // la prima colonna con quel nome
+    }
+  });
+
+  const missing = Object.keys(NOMI).filter(k => idx[k] < 0).map(k => NOMI[k]);
+  if(missing.length){
+    msg("Nel file mancano queste colonne attese alla riga di intestazione: " + missing.join(", ")
+        + ". Serve l'estratto Giacenza UdC completo.", "err");
+    return;
+  }
+
+  ROWS = [];
+  STAT = {noArt:0, noQ:0};
+  for(let i = h + 1; i < aoa.length; i++){
+    const r = aoa[i];
+    if(!r) continue;
+    const area = clean(r[idx.area]);
+    const art  = clean(r[idx.art]);
+    if(!area && !art) continue;                       // riga vuota
+    if(!art){ STAT.noArt++; continue; }               // senza articolo non si può mettere in etichetta
+    let q = toNum(r[idx.q]);
+    if(isNaN(q)){ q = 0; STAT.noQ++; }
+    ROWS.push({
+      area: area,
+      ver:  clean(r[idx.ver]),
+      art:  art,
+      desc: clean(r[idx.desc]),
+      um:   idx.um >= 0 ? clean(r[idx.um]) : "",
+      q:    q
+    });
+  }
+
+  if(!ROWS.length){ msg("Non ho trovato righe con un articolo.", "err"); return; }
+  if(idx.um < 0) msg("Nel file manca la colonna U.M.: la colonna FORMATO resterà vuota.", "warn");
+
+  $("fileinfo").innerHTML =
+      `<span class="pill">${fmtInt(ROWS.length)} righe</span> `
+    + `&nbsp;${esc(FNAME)} — foglio “${esc(sheetName)}”, intestazione alla riga ${h+1}`;
+  $("config").classList.remove("hidden");
+  renderMot();
+  build();
+}
+
+/* ---------- tabella motivazioni ---------- */
+function renderMot(){
+  const body = $("motBody");
+  body.innerHTML = "";
+  MOT.forEach((m, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+        `<td><input data-i="${i}" data-f="area" value="${esc(m.area)}" placeholder="Area"></td>`
+      + `<td><input data-i="${i}" data-f="mot" value="${esc(m.mot)}" placeholder="Motivazione"></td>`
+      + `<td><input data-i="${i}" data-f="cod" value="${esc(m.cod)}" placeholder="Codice"></td>`
+      + `<td class="cnt" id="cnt${i}">0</td>`
+      + `<td class="del"><button class="x" data-del="${i}" title="Togli la riga">&times;</button></td>`;
+    body.appendChild(tr);
+  });
+}
+let motTimer = null;
+$("motBody").addEventListener("input", e => {
+  const t = e.target;
+  if(!t.dataset || t.dataset.i === undefined) return;
+  MOT[+t.dataset.i][t.dataset.f] = t.value;
+  clearTimeout(motTimer);
+  motTimer = setTimeout(build, 250);
+});
+$("motBody").addEventListener("click", e => {
+  const b = e.target.closest("button[data-del]");
+  if(!b) return;
+  MOT.splice(+b.dataset.del, 1);
+  renderMot(); build();
+});
+$("motAdd").addEventListener("click", () => {
+  MOT.push({area:"", mot:"", cod:""});
+  renderMot();
+  const ins = $("motBody").querySelectorAll("input");
+  if(ins.length) ins[ins.length - 3].focus();
+});
+$("motReset").addEventListener("click", () => {
+  MOT = DEFAULT_MOT.map(x => ({...x}));
+  renderMot(); build();
+});
+["fData","fPlant","fVerb"].forEach(id => $(id).addEventListener("input", () => {
+  clearTimeout(motTimer);
+  motTimer = setTimeout(build, 250);
+}));
+$("pvScale").addEventListener("change", e => {
+  $("docLabels").style.setProperty("--pv", e.target.value);
+});
+
+/* ---------- generazione ---------- */
+$("again").addEventListener("click", () => {
+  ROWS = []; clearMsg(); $("warns").innerHTML = "";
+  $("config").classList.add("hidden"); $("out").classList.add("hidden");
+  $("docLabels").classList.add("hidden"); $("labels").innerHTML = "";
+  $("file").value = ""; window.scrollTo({top:0, behavior:"smooth"});
+});
+
+function warn(text, kind, action){
+  const d = document.createElement("div");
+  d.className = "msg " + (kind || "warn");
+  const w = document.createElement("div");
+  w.className = "warnrow";
+  const s = document.createElement("span");
+  s.textContent = text;
+  w.appendChild(s);
+  if(action){
+    const b = document.createElement("button");
+    b.textContent = action.label;
+    b.addEventListener("click", action.fn);
+    w.appendChild(b);
+  }
+  d.appendChild(w);
+  $("warns").appendChild(d);
+}
+
+function build(){
+  if(!ROWS.length) return;
+  $("warns").innerHTML = "";
+
+  /* motivazioni indicizzate per area (maiuscole e spazi ignorati; vince la prima riga) */
+  const mapMot = new Map();
+  MOT.forEach(m => { const k = norm(m.area); if(k && !mapMot.has(k)) mapMot.set(k, m); });
+
+  /* conteggio righe per riga della tabella */
+  const perArea = new Map();
+  ROWS.forEach(r => { const k = norm(r.area); perArea.set(k, (perArea.get(k) || 0) + 1); });
+  MOT.forEach((m, i) => {
+    const c = $("cnt" + i);
+    if(c) c.textContent = fmtInt(perArea.get(norm(m.area)) || 0);
+  });
+
+  /* raggruppo: Area + Versione -> etichetta; dentro, una riga per articolo e formato */
+  const groups = new Map();
+  const unmapped = new Map();
+  let escluse = 0, senzaVer = 0;
+  ROWS.forEach(r => {
+    const ak = norm(r.area);
+    const m = mapMot.get(ak);
+    if(!m){
+      unmapped.set(r.area, (unmapped.get(r.area) || 0) + 1);
+      escluse++;
+      return;
+    }
+    const ver = r.ver || "DA VERIFICARE";
+    if(!r.ver) senzaVer++;
+    const gk = ak + "|" + ver;
+    let g = groups.get(gk);
+    if(!g){ g = {area:r.area, m:m, ak:ak, ver:ver, lines:new Map(), udc:0}; groups.set(gk, g); }
+    g.udc++;
+    const lk = r.art + "|" + r.um;
+    let l = g.lines.get(lk);
+    if(!l){ l = {art:r.art, desc:r.desc, um:r.um, q:0}; g.lines.set(lk, l); }
+    l.q += r.q;
+    if(!l.desc && r.desc) l.desc = r.desc;
+  });
+
+  /* ordine delle etichette: aree come nella tabella, poi numero bancale */
+  const orderArea = new Map();
+  MOT.forEach((m, i) => { const k = norm(m.area); if(k && !orderArea.has(k)) orderArea.set(k, i); });
+  const list = [...groups.values()].sort((a, b) =>
+    (orderArea.get(a.ak) - orderArea.get(b.ak)) || nat(a.ver, b.ver));
+
+  /* avvisi */
+  unmapped.forEach((n, area) => {
+    warn(`L'area “${area || "(vuota)"}” ha ${fmtInt(n)} righe ma nessuna motivazione: non genera etichette.`,
+         "warn", {label:"Aggiungi alla tabella", fn: () => {
+           MOT.push({area: area, mot:"", cod:""});
+           renderMot(); build();
+           const ins = $("motBody").querySelectorAll("input");
+           if(ins.length) ins[ins.length - 2].focus();
+         }});
+  });
+  const incompl = [...new Set(list.filter(g => !clean(g.m.mot) || !clean(g.m.cod)).map(g => g.area))];
+  if(incompl.length)
+    warn("Motivazione o codice vuoti per: " + incompl.join(", ") + ". Le etichette escono con la casella vuota.", "warn");
+  if(senzaVer)
+    warn(`${fmtInt(senzaVer)} righe non hanno il numero di versione: stanno su etichette con “DA VERIFICARE”.`, "warn");
+  if(STAT.noArt)
+    warn(`${fmtInt(STAT.noArt)} righe del file non hanno l'articolo e sono state saltate.`, "warn");
+  if(STAT.noQ)
+    warn(`${fmtInt(STAT.noQ)} righe hanno una quantità non numerica: contate come 0.`, "warn");
+  const lunghe = list.filter(g => g.lines.size > RIGHE_STD);
+  if(lunghe.length)
+    warn(`${lunghe.length} ${lunghe.length === 1 ? "etichetta ha" : "etichette hanno"} più di ${RIGHE_STD} articoli: `
+       + "le righe sono più basse per stare in una pagina ("
+       + lunghe.map(g => g.area + " " + g.ver + ": " + g.lines.size).join("; ") + ").", "warn");
+
+  /* etichette */
+  const host = $("labels");
+  host.innerHTML = "";
+  let nRighe = 0, nColli = 0;
+  list.forEach(g => {
+    const lines = [...g.lines.values()].sort((a, b) => nat(a.art, b.art));
+    const colli = lines.reduce((s, l) => s + l.q, 0);
+    nRighe += lines.length; nColli += colli;
+    const pv = document.createElement("div");
+    pv.className = "pv";
+    pv.innerHTML = `<div class="pvbox"><div class="page">${labelHtml(g, lines, colli)}</div></div>`
+      + `<div class="pvcap"><strong>${esc(g.area)}</strong> · bancale ${esc(g.ver)} · `
+      + `${lines.length} ${lines.length === 1 ? "articolo" : "articoli"} · ${fmtQ(colli)} colli</div>`;
+    host.appendChild(pv);
+  });
+
+  $("cEtich").textContent = fmtInt(list.length);
+  $("cRighe").textContent = fmtInt(nRighe);
+  $("cColli").textContent = fmtQ(nColli);
+  $("cEscl").textContent  = fmtInt(escluse);
+  $("docCount").textContent = list.length
+    ? `${list.length} ${list.length === 1 ? "etichetta" : "etichette"} — anteprima`
+    : "";
+  $("out").classList.remove("hidden");
+  $("print").disabled = list.length === 0;
+  $("docLabels").classList.toggle("hidden", list.length === 0);
+  if(!list.length) warn("Nessuna etichetta: nessuna area del file ha una motivazione nella tabella.", "err");
+  fitAll();
+}
+
+/* ---------- una etichetta (layout di MODELLO.xlsx) ---------- */
+function labelHtml(g, lines, colli){
+  const N = lines.length;
+  const rh = N > RIGHE_STD ? (RIGHE_STD * RH_STD / N) : RH_STD;           // mm
+  const fs = Math.min(FS_STD, rh / 0.3528 * 0.62);                         // pt
+  const cod = clean(g.m.cod);
+  const fit = t => `<div class="fit">${esc(t)}</div>`;
+
+  const cols = COLW.map(w => `<col style="width:${(w / COLW.reduce((a, b) => a + b, 0) * 100).toFixed(3)}%">`).join("");
+
+  let rows = "";
+  lines.forEach(l => {
+    rows += `<tr class="d"><td>${fit(l.art)}</td><td colspan="4" class="ds">${fit(l.desc)}</td>`
+          + `<td>${fit(fmtQ(l.q))}</td><td>${fit(cod)}</td><td colspan="3">${fit(l.um)}</td></tr>`;
+  });
+  for(let i = N; i < RIGHE_STD; i++)
+    rows += `<tr class="d"><td></td><td colspan="4"></td><td></td><td></td><td colspan="3"></td></tr>`;
+
+  return `<table class="label" style="--rh:${rh.toFixed(3)}mm;--fs:${fs.toFixed(2)}pt"><colgroup>${cols}</colgroup><tbody>`
+    + `<tr class="title"><td colspan="10">COCA COLA HBC ITALIA</td></tr>`
+    + `<tr class="dati"><td class="nor">DATA:</td><td colspan="2" class="nol">${fit($("fData").value)}</td>`
+    +   `<td colspan="7" class="l">CODICE PLANT ${esc($("fPlant").value)}</td></tr>`
+    + `<tr class="nb"><td colspan="2" class="cy">NR BANCALE</td><td colspan="3">${fit(g.ver)}</td>`
+    +   `<td colspan="2">${fit(g.m.mot)}</td><td colspan="3">${fit(cod)}</td></tr>`
+    + `<tr class="vb"><td colspan="2" class="cy">VERBALE NR</td><td colspan="3">${fit($("fVerb").value)}</td>`
+    +   `<td colspan="2"></td><td colspan="3"></td></tr>`
+    + `<tr class="hdr"><td>CODICE</td><td colspan="4">DESCRIZIONE</td><td>Q.TA'</td><td>CAUS.</td><td colspan="3">FORMATO</td></tr>`
+    + rows
+    + `<tr class="sp"><td colspan="10"></td></tr>`
+    + `<tr class="tot"><td></td><td colspan="4">CASSE TOTALI</td><td>${fmtQ(colli)}</td><td></td><td colspan="3"></td></tr>`
+    + `<tr class="tot"><td>${esc(PALLET.cod)}</td><td colspan="4">${esc(PALLET.desc)}</td><td>${PALLET.q}</td><td></td><td colspan="3"></td></tr>`
+    + `<tr class="sp2"><td colspan="10"></td></tr>`
+    + `<tr class="tear"><td colspan="10"></td></tr>`
+    + `<tr class="sig"><td colspan="3">FIRMA OPERATORE:</td><td colspan="2"></td><td colspan="2" class="vf">VERIFICA</td>`
+    +   `<td class="okb">OK</td><td colspan="2"></td></tr>`
+    + `</tbody></table>`;
+}
+
+/* restringe il corpo carattere delle celle il cui testo non sta nella larghezza */
+function fitAll(){
+  document.querySelectorAll("#labels .fit").forEach(el => {
+    el.style.fontSize = "";
+    let fs = parseFloat(getComputedStyle(el).fontSize);
+    const min = fs * 0.5;
+    while(el.scrollWidth > el.clientWidth + 0.5 && fs > min){
+      fs -= 0.5;
+      el.style.fontSize = fs + "px";
+    }
+  });
+}
+
+/* ---------- stampa ---------- */
+$("print").addEventListener("click", () => { fitAll(); window.print(); });
+window.addEventListener("beforeprint", fitAll);
+
+if(typeof XLSX === "undefined"){
+  msg("Non riesco a caricare la libreria di lettura Excel da cdnjs.cloudflare.com. Se la rete la blocca, "
+    + "scarica xlsx.full.min.js, mettilo nella stessa cartella di questa pagina e cambia il src dello script "
+    + "in \"xlsx.full.min.js\".", "err");
+  $("drop").style.pointerEvents = "none";
+  $("drop").style.opacity = ".5";
+}
+</script>
+</body>
+</html>
