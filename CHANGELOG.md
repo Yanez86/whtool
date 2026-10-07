@@ -32,7 +32,8 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
   i dati lingua italiani non si scaricano.
 - 1.0 — versione iniziale: porting nel browser di `split_bordero.py`.
 
-## Etichette packing list — 1.0 (07/10/2026)
+## Etichette packing list — 1.1 (07/10/2026)
+- 1.1 — stampa senza URL e data in basso: margine di pagina a zero, margini spostati nel contenuto.
 - 1.0 — versione iniziale: dalla giacenza UdC una etichetta A4 (layout di `MODELLO.xlsx`) per ogni coppia
   Area + Versione, dove la versione è il numero bancale. Motivazione e codice in base all'area, con tabella
   modificabile (RITIRI COCA, ROTTURE 262, ROTTURE, BL5, BL3 precaricate). Una riga per articolo con quantità
