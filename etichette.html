@@ -185,12 +185,14 @@
 
   /* ---------- stampa ---------- */
   @media print{
-    @page{size:A4 portrait;margin:10mm 8mm}
+    /* margine di pagina a zero: così il browser non stampa URL e data; i margini stanno nel contenuto */
+    @page{size:A4 portrait;margin:0}
+    html,body{margin:0;padding:0}
     .topbar,.noprint{display:none !important}
     body{background:#fff}
     .doc{max-width:none;margin:0;padding:0;border:none;border-radius:0}
     .pvgrid{display:block}
-    .pv{width:auto;height:274mm;break-after:page;page-break-after:always}
+    .pv{width:auto;height:296mm;box-sizing:border-box;padding:10mm 8mm;break-after:page;page-break-after:always}
     .pv:last-child{break-after:auto;page-break-after:auto}
     .pvbox{width:100%;height:100%;overflow:visible;outline:none;display:flex;align-items:center;
       justify-content:center}
@@ -292,7 +294,7 @@
 </div>
 
 <footer class="ver noprint">
-  <span><strong>Etichette packing list</strong> <span class="sep">·</span> versione 1.0</span>
+  <span><strong>Etichette packing list</strong> <span class="sep">·</span> versione 1.1</span>
   <span class="sep">·</span>
   <span>aggiornato il 07/10/2026</span>
 </footer>
