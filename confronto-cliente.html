@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Confronto giacenza cliente</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#15181d; --muted:#6b7280;
+    --line:#e3e6ea; --accent:#1f6feb; --accent-soft:#e8f0fe;
+    --ok:#0f7b45; --ok-soft:#e6f4ec;
+    --warn:#8a5a00; --warn-soft:#fff5e0;
+    --err:#b42318; --err-soft:#fdeceb;
+    --head:#f7f8fa; --zebra:#fbfcfd;
+    --radius:10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1216; --panel:#171b21; --ink:#e8eaed; --muted:#9aa3af;
+      --line:#282e37; --accent:#4c8dff; --accent-soft:#1b2740;
+      --ok:#4ade80; --ok-soft:#14301f;
+      --warn:#fbbf24; --warn-soft:#33260c;
+      --err:#fca5a5; --err-soft:#3a1614;
+      --head:#1d222a; --zebra:#1b2028;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;}
+
+  /* barra di navigazione */
+  .topbar{background:var(--panel);border-bottom:1px solid var(--line)}
+  .topbar .inner{max-width:1180px;margin:0 auto;padding:0 20px;display:flex;align-items:center;
+    gap:18px;height:52px;flex-wrap:wrap}
+  .brand{font-weight:700;letter-spacing:-.01em;color:var(--ink);text-decoration:none;white-space:nowrap}
+  .brand span{color:var(--muted);font-weight:400}
+  .navlinks{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+  .navlinks a{color:var(--muted);text-decoration:none;padding:6px 12px;border-radius:8px;white-space:nowrap}
+  .navlinks a:hover{background:var(--accent-soft);color:var(--ink)}
+  .navlinks a.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 64px}
+  header h1{margin:0 0 4px;font-size:22px;letter-spacing:-.01em}
+  header p{margin:0 0 4px;color:var(--muted);max-width:78ch}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px;margin-top:20px}
+  .panel h2{margin:0 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+
+  /* dropzone */
+  #drop{border:2px dashed var(--line);border-radius:var(--radius);background:var(--panel);
+    padding:40px 20px;text-align:center;cursor:pointer;transition:.15s;margin-top:20px}
+  #drop:hover,#drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  #drop strong,#drop .big{display:block;font-size:15px;font-weight:600;margin-bottom:4px}
+  #drop span,#drop .small{color:var(--muted);font-size:13px}
+  input[type=file]{display:none}
+
+  /* pulsanti */
+  button{font:inherit;border-radius:8px;border:1px solid var(--line);background:var(--panel);
+    color:var(--ink);padding:8px 14px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.primary:hover{filter:brightness(1.08)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  button:disabled:hover{border-color:var(--line)}
+  .btns,.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+
+  /* liste campi con checkbox */
+  .row{display:flex;gap:16px;flex-wrap:wrap}
+  .col{flex:1 1 320px;min-width:280px}
+  .fieldlist{border:1px solid var(--line);border-radius:8px;max-height:300px;overflow:auto;background:var(--bg)}
+  .fieldlist label{display:flex;align-items:center;gap:8px;padding:6px 10px;
+    border-bottom:1px solid var(--line);cursor:pointer}
+  .fieldlist label:last-child{border-bottom:none}
+  .fieldlist label:hover{background:var(--accent-soft)}
+  .fieldlist input{margin:0;flex:none}
+  .fieldlist .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fieldlist .tag{margin-left:auto;font-size:11px;color:var(--muted);flex:none}
+  .search{width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:8px;
+    background:var(--panel);color:var(--ink);margin-bottom:8px}
+  select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel);color:var(--ink)}
+
+  /* riquadri file (report rotture) */
+  .slots{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+  @media(max-width:680px){.slots{grid-template-columns:1fr}}
+  .slot{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);padding:12px 14px}
+  .slot .lab{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .slot .fname{margin-top:4px;font-weight:600;word-break:break-all}
+  .slot .meta{color:var(--muted);font-size:12px;margin-top:2px}
+  .slot.empty .fname{color:var(--muted);font-weight:400}
+
+  /* riquadri numerici */
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:680px){.cards{grid-template-columns:repeat(2,1fr)}}
+  .card{border:1px solid var(--line);border-radius:var(--radius);padding:14px;background:var(--bg)}
+  .card .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .card .v{font-size:22px;font-weight:650;margin-top:4px;font-variant-numeric:tabular-nums}
+
+  /* etichette e messaggi */
+  .pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px;
+    background:var(--ok-soft);color:var(--ok)}
+  .meta,.hint{color:var(--muted);font-size:13px}
+  .hint{margin-top:10px;font-size:12px}
+  .msg{border-radius:8px;padding:10px 14px;margin-top:12px;font-size:13px;border:1px solid transparent}
+  .msg.err,.err{background:var(--err-soft);color:var(--err);border-color:var(--err)}
+  .msg.warn{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
+
+  /* tabelle */
+  .tablewrap{margin-top:16px;border:1px solid var(--line);border-radius:var(--radius);
+    overflow:auto;max-height:65vh;background:var(--panel)}
+  table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+  th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{position:sticky;top:0;background:var(--head);z-index:1;font-size:11px;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--muted);font-weight:700}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  td.desc{white-space:normal;min-width:240px}
+  tbody tr:nth-child(even){background:var(--zebra)}
+  tfoot td{position:sticky;bottom:0;background:var(--head);font-weight:700;
+    border-top:2px solid var(--line);border-bottom:none}
+
+  .hidden{display:none}
+  .msg.info{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+
+  /* ---------- scelta del confronto ---------- */
+  .modi{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:680px){.modi{grid-template-columns:1fr}}
+  button.modo{display:block;width:100%;text-align:left;padding:14px 16px;border:2px solid var(--line);
+    border-radius:var(--radius);background:var(--panel);color:var(--ink)}
+  button.modo:hover{border-color:var(--accent)}
+  button.modo.on{border-color:var(--accent);background:var(--accent-soft)}
+  button.modo .t{display:block;font-weight:700;font-size:15px;letter-spacing:.02em}
+  button.modo.on .t{color:var(--accent)}
+  button.modo .s{display:block;color:var(--muted);font-size:13px;margin-top:3px}
+  .badgemodo{display:inline-block;padding:4px 12px;border-radius:99px;background:var(--accent);
+    color:#fff;font-weight:700;font-size:12px;letter-spacing:.04em}
+  .outhead{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+
+  /* ---------- tabelle di configurazione ---------- */
+  .cfgrow{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+  .cfgcol{flex:1 1 400px;min-width:280px}
+  .cfgcol.larga{flex:1.3 1 600px}
+  .cfgcol h3{margin:0 0 8px;font-size:13px}
+  table.cfg{font-size:13px}
+  table.cfg th{position:static}
+  table.cfg td{padding:5px 10px;vertical-align:middle}
+  table.cfg tbody tr:nth-child(even){background:transparent}
+  table.cfg select{width:100%}
+  .magtab{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;font-weight:600}
+
+  /* ---------- risultati ---------- */
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:16px}
+  .toolbar .spacer{flex:1}
+  button.chip{border-radius:99px;padding:5px 13px;font-size:13px}
+  button.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  input.cerca{padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);
+    color:var(--ink);font:inherit;min-width:220px}
+  table.res{font-size:12.5px}
+  table.res th{white-space:normal;vertical-align:bottom;line-height:1.25}
+  table.res th,table.res td{padding:6px 7px}
+  table.res td.desc{min-width:130px}
+  table.res td select{padding:3px 6px;font-size:12px}
+  tr.rosso td{background:var(--err-soft)}
+  td.dz{color:var(--err);font-weight:650}
+  .tag{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
+  .tag.pari{background:var(--ok-soft);color:var(--ok)}
+  .tag.diff{background:var(--warn-soft);color:var(--warn)}
+  .tag.cliente{background:var(--head);color:var(--muted);border:1px solid var(--line)}
+  .tag.nostra{background:var(--err-soft);color:var(--err)}
+  table.mini{font-size:13px;margin-top:4px;width:auto;min-width:560px}
+  table.mini th{position:static}
+  table.mini tbody tr:nth-child(even){background:transparent}
+
+  /* piè di pagina con versione */
+  .ver{max-width:1180px;margin:0 auto;padding:14px 20px 28px;color:var(--muted);font-size:12px;
+    border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}
+  .ver strong{font-weight:600;color:var(--ink)}
+  .ver .sep{opacity:.5}
+  @media print{ .ver{display:none !important} }
+</style>
+</head>
+<body>
+  <div class="topbar"><div class="inner">
+    <a class="brand" href="index.html">Tool Magazzino</a>
+    <nav class="navlinks">
+      <a href="giacenze.html">Aggregatore giacenze</a>
+      <a href="rotture.html">Report rotture / L&amp;F</a>
+      <a href="inventario.html">Inventario</a>
+      <a href="verifica-inventario.html">Verifica inventario</a>
+      <a href="bordero.html">Borderò</a>
+      <a href="etichette.html">Etichette</a>
+      <a href="confronto-cliente.html" class="active">Confronto cliente</a>
+    </nav>
+  </div></div>
+
+<div class="wrap">
+  <header>
+    <h1>Confronto giacenza cliente</h1>
+    <p>Confronta la nostra <strong>Giacenza UdC</strong> con la giacenza del cliente, articolo per articolo, contando colli o pezzi secondo l'unità di misura dell'articolo. Tutto avviene nel browser, nessun dato viene caricato online.</p>
+  </header>
+
+  <div class="panel">
+    <h2>Tipo di confronto</h2>
+    <div class="modi">
+      <button type="button" class="modo on" data-modo="inv">
+        <span class="t">1 · INVENTARIO</span>
+        <span class="s">Tabulato inventario del cliente: si restituisce compilato</span>
+      </button>
+      <button type="button" class="modo" data-modo="bil">
+        <span class="t">2 · BILANCIAMENTO CLICK - BOLLICINE</span>
+        <span class="s">Giacenza Bollicine per magazzino: si scarica il confronto</span>
+      </button>
+    </div>
+    <div class="hint" id="modoHint"></div>
+  </div>
+
+  <div id="drop">
+    <strong>Trascina qui i due file Excel</strong>
+    <span>la Giacenza UdC e il file del cliente, anche insieme — .xlsx, .xls</span>
+    <input type="file" id="file" multiple accept=".xlsx,.xlsm,.xls">
+  </div>
+
+  <div class="slots">
+    <div class="slot empty" id="slotGiac">
+      <div class="lab">Nostra giacenza · Giacenza UdC</div>
+      <div class="fname">nessun file</div>
+      <div class="meta"></div>
+    </div>
+    <div class="slot empty" id="slotCli">
+      <div class="lab" id="labCli">File cliente · Tabulato inventario</div>
+      <div class="fname">nessun file</div>
+      <div class="meta"></div>
+    </div>
+  </div>
+  <div class="actions">
+    <button id="reset" disabled>Ricomincia</button>
+  </div>
+
+  <div id="messages"></div>
+
+  <div id="config" class="panel hidden">
+    <h2>Impostazioni del confronto</h2>
+    <div class="magtab hidden" id="magTabWrap">
+      <label for="magTab">Il tabulato è del magazzino</label>
+      <select id="magTab"></select>
+    </div>
+    <div class="cfgrow">
+      <div class="cfgcol larga hidden" id="cfgStatiWrap">
+        <h3>Stato contabile della nostra giacenza → magazzino del cliente</h3>
+        <div class="tablewrap" style="max-height:none;margin-top:0">
+          <table class="cfg"><thead><tr><th>Stato contabile</th><th class="num">UdC</th><th class="num">Articoli</th>
+            <th class="num">Colli</th><th class="num">Pezzi</th><th style="min-width:170px">Magazzino cliente</th></tr></thead>
+            <tbody id="cfgStati"></tbody></table>
+        </div>
+      </div>
+      <div class="cfgcol hidden" id="cfgUmWrap">
+        <h3>Unità di misura del cliente → conteggio</h3>
+        <div class="tablewrap" style="max-height:none;margin-top:0">
+          <table class="cfg"><thead><tr><th>U.M.</th><th class="num">Articoli nel file</th>
+            <th style="min-width:200px">Conteggio</th></tr></thead>
+            <tbody id="cfgUm"></tbody></table>
+        </div>
+      </div>
+    </div>
+    <div class="hint">Colli = <strong>Quantità Stoccata</strong>, pezzi = <strong>Pezzi Stoccati</strong> della nostra giacenza. Ogni modifica ricalcola subito il confronto. Le scelte valgono finché la pagina resta aperta: alla prossima apertura si riparte dai valori predefiniti.</div>
+  </div>
+
+  <div id="warns"></div>
+
+  <div id="out" class="panel hidden">
+    <div class="outhead">
+      <span class="badgemodo" id="outModo"></span>
+      <span class="meta" id="outFile"></span>
+    </div>
+    <div class="cards">
+      <div class="card"><div class="k" id="k1"></div><div class="v" id="v1">0</div></div>
+      <div class="card"><div class="k" id="k2"></div><div class="v" id="v2">0</div></div>
+      <div class="card"><div class="k" id="k3"></div><div class="v" id="v3">0</div></div>
+      <div class="card"><div class="k" id="k4"></div><div class="v" id="v4">0</div></div>
+    </div>
+    <div id="perMag"></div>
+    <div class="hint" id="outHint"></div>
+
+    <div class="toolbar">
+      <button type="button" class="chip on" data-f="tutte">Tutte</button>
+      <button type="button" class="chip" data-f="diff">Con differenza</button>
+      <button type="button" class="chip" data-f="cliente" id="chipCli">Solo cliente</button>
+      <button type="button" class="chip" data-f="nostra">Solo nostre</button>
+      <select id="magFiltro" class="hidden"></select>
+      <input type="search" class="cerca" id="cerca" placeholder="Cerca articolo o descrizione…">
+      <span class="spacer"></span>
+      <button class="primary" id="scarica">Scarica</button>
+    </div>
+    <div class="meta" id="conteggio" style="margin-top:10px"></div>
+    <div class="tablewrap" id="tabwrap"><table class="res" id="tab"></table></div>
+  </div>
+</div>
+
+<footer class="ver noprint">
+  <span><strong>Confronto giacenza cliente</strong> <span class="sep">·</span> versione 1.0</span>
+  <span class="sep">·</span>
+  <span>aggiornato il 26/11/2026</span>
+</footer>
+
+<script>
+"use strict";
+
+/* =========================================================
+   Confronto giacenza cliente
+   1 · INVENTARIO: il tabulato inventario del cliente torna indietro
+       con "conta click" compilata; in fondo, in rosso chiaro, gli
+       articoli che ha solo la nostra giacenza. Il file del cliente
+       si modifica direttamente (JSZip) per non perderne la grafica.
+   2 · BILANCIAMENTO CLICK - BOLLICINE: la giacenza Bollicine,
+       per articolo e magazzino (01 / AS / NV), confrontata con la
+       nostra; si scarica un Excel nuovo.
+   ========================================================= */
+
+/* ---------- costanti ---------- */
+const MODI = {
+  inv: {
+    nome: "1 · INVENTARIO",
+    cliente: "Tabulato inventario",
+    hint: "Carica la <strong>Giacenza UdC</strong> e il <strong>tabulato inventario</strong> del cliente. "
+        + "Scarichi il suo file con la colonna <em>conta click</em> compilata e, in fondo, in rosso chiaro, "
+        + "gli articoli che ha solo la nostra giacenza."
+  },
+  bil: {
+    nome: "2 · BILANCIAMENTO CLICK - BOLLICINE",
+    cliente: "Giacenza Bollicine",
+    hint: "Carica la <strong>Giacenza UdC</strong> e la <strong>giacenza Bollicine</strong> (anche in .xls). "
+        + "Il confronto è per articolo e magazzino del cliente (01 - VENDIBILE, AS, NV); scarichi un Excel "
+        + "nuovo con le differenze."
+  }
+};
+const MAG_DEFAULT = [
+  {cod:"01", nome:"01 - VENDIBILE"},
+  {cod:"AS", nome:"AS"},
+  {cod:"NV", nome:"NV"}
+];
+/* stato contabile -> magazzino del cliente; tutti gli stati non elencati vanno in NV */
+const STATO_DEFAULT = {"DISPONIBILE":"01", "SHORT":"AS"};
+const STATO_ALTRI   = "NV";
+/* stati già visti nei file reali: uno stato fuori elenco va in NV ma con un avviso */
+const STATI_NOTI = ["DISPONIBILE", "SHORT", "BLOCCA", "BLOCCA TMP1", "RESO MAGAZZINO", "RESO CLI VERIF"];
+/* U.M. del cliente -> conteggio: "colli" = Quantità Stoccata, "pezzi" = Pezzi Stoccati.
+   BT a pezzi: il cliente conta le bottiglie. PZ e PC a colli: i confezionati (es. 10 pezzi
+   per collo) il cliente li conta a colli; per gli altri un collo è un pezzo. */
+const UM_DEFAULT = {CT:"colli", CF:"colli", CS:"colli", PZ:"colli", PC:"colli",
+                    BT:"pezzi", FS:"pezzi", BO:"pezzi", PL:"pezzi"};
+const UM_ALTRE   = "colli";
+const ROSSO      = "FFFFC7CE";          // rosso chiaro standard di Excel
+const MAX_RIGHE  = 3000;                // righe mostrate a video (il file le contiene tutte)
+const XML_DECL   = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+const MIME_XLSX  = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const NS_MAIN    = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+const NS_R       = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+const NS_REL     = "http://schemas.openxmlformats.org/package/2006/relationships";
+const NS_CT      = "http://schemas.openxmlformats.org/package/2006/content-types";
+const NS_XML     = "http://www.w3.org/XML/1998/namespace";
+
+/* colonne attese, già normalizzate (minuscolo, senza accenti) */
+const COLS = {
+  giac: {art:["articolo"], stato:["stato contabile"], colli:["quantita stoccata"], pezzi:["pezzi stoccati"],
+         desc:["descrizione articolo"], um:["u.m.", "u.m", "um"]},
+  inv:  {art:["s_codart"], desc:["s_desart"], um:["art_um"], qxc:["s_qtaxc"], giac:["giacenza"],
+         conta:["conta click", "conta clik", "colli click", "colli clik"], diff:["diff"]},
+  bil:  {fil:["kfil"], mag:["kmag"], art:["kart"], desc:["desart"], qxc:["qxc"], um:["um"], giac:["giac"]}
+};
+const OBBLIGATORIE = {giac:["art", "stato", "colli", "pezzi"], inv:["art", "um", "giac", "conta"],
+                      bil:["mag", "art", "um", "giac"]};
+const NOMI_COL = {
+  giac: {art:"Articolo", stato:"Stato Contabile", colli:"Quantità Stoccata", pezzi:"Pezzi Stoccati"},
+  inv:  {art:"s_codart", um:"art_um", giac:"giacenza", conta:"conta click"},
+  bil:  {mag:"kmag", art:"kart", um:"um", giac:"giac"}
+};
+const NOMI_TIPO = {giac:"una Giacenza UdC", inv:"un tabulato inventario", bil:"una giacenza Bollicine"};
+/* singolare o plurale secondo il numero */
+const pl = (n, uno, tanti) => n === 1 ? uno : tanti;
+
+/* ---------- utility ---------- */
+const $ = id => document.getElementById(id);
+const norm = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "")
+                  .replace(/\s+/g, " ").trim().toLowerCase();
+const clean = v => String(v ?? "").replace(/\s+/g, " ").trim();
+const esc = s => String(s ?? "").replace(/[&<>"]/g,
+                  c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;"}[c]));
+const r3 = n => Math.round(n * 1000) / 1000;
+const pad = (v, n) => String(v).padStart(n, "0");
+const nat = (a, b) => String(a).localeCompare(String(b), "it", {numeric:true, sensitivity:"base"});
+const fmtInt = n => n.toLocaleString("it-IT");
+const fmtQ = n => (n === null || n === undefined || n === "" || !isFinite(n)) ? ""
+                  : r3(n).toLocaleString("it-IT", {maximumFractionDigits:3});
+const fmtSegno = n => !n ? "0" : (n > 0 ? "+" : "−") + fmtQ(Math.abs(n));
+const colLett = n => XLSX.utils.encode_col(n);
+function colNum(ref){
+  const m = /^\$?([A-Z]+)/.exec(ref);
+  let n = 0;
+  for(const ch of m[1]) n = n * 26 + ch.charCodeAt(0) - 64;
+  return n - 1;
+}
+function oggi(){
+  const d = new Date();
+  return pad(d.getDate(), 2) + "/" + pad(d.getMonth() + 1, 2) + "/" + d.getFullYear();
+}
+function oggiCompatto(){
+  const d = new Date();
+  return d.getFullYear() + pad(d.getMonth() + 1, 2) + pad(d.getDate(), 2);
+}
+/* codice come testo: un numero letto da Excel non deve diventare 1.75e+6 */
+function toCode(v){
+  if(v === null || v === undefined) return "";
+  if(typeof v === "number") return String(Math.round(v * 1e10) / 1e10);
+  return String(v).trim();
+}
+/* chiave di abbinamento: maiuscole e spazi ignorati */
+const chiave = v => toCode(v).replace(/\s+/g, "").toUpperCase();
+/* numero robusto: 12, "12", "1.234,5", "12,5"; vuoto = 0; NaN se non è un numero */
+function toNum(v){
+  if(v === null || v === undefined || v === "") return 0;
+  if(typeof v === "number") return isFinite(v) ? v : NaN;
+  if(typeof v !== "string") return NaN;
+  let s = v.trim().replace(/\s/g, "");
+  if(s === "") return 0;
+  if(s.indexOf(",") > -1) s = s.replace(/\./g, "").replace(",", ".");
+  const n = Number(s);
+  return isFinite(n) ? n : NaN;
+}
+
+function msg(text, kind){
+  const d = document.createElement("div");
+  d.className = "msg " + (kind || "warn");
+  d.textContent = text;
+  $("messages").appendChild(d);
+}
+function clearMsg(){ $("messages").innerHTML = ""; }
+
+/* ---------- stato ---------- */
+const ST = {
+  modo: "inv",
+  giac: null,                 // Giacenza UdC letta
+  cli: null,                  // tabulato o giacenza Bollicine
+  mags: MAG_DEFAULT.map(m => ({...m})),
+  statoMag: new Map(),        // stato contabile -> codice magazzino cliente
+  umConta: new Map(),         // U.M. -> "colli" | "pezzi"
+  magTab: "01",               // magazzino a cui si riferisce il tabulato
+  umAgg: new Map(),           // U.M. scelta per le righe aggiunte: chiave articolo -> U.M.
+  ris: null,
+  filtro: "tutte",
+  magFiltro: ""
+};
+
+/* ---------- lettura dei file ---------- */
+function leggiFile(file){
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = () => reject(new Error("Impossibile leggere " + file.name));
+    fr.readAsArrayBuffer(file);
+  });
+}
+const isZip = buf => { const b = new Uint8Array(buf, 0, Math.min(2, buf.byteLength)); return b[0] === 0x50 && b[1] === 0x4B; };
+
+/* primo foglio come matrice; r0/c0 = cella di partenza dell'area usata (per risalire alle celle vere) */
+function primoFoglio(buf){
+  const wb = XLSX.read(new Uint8Array(buf), {type:"array"});
+  const nome = wb.SheetNames[0];
+  const ws = wb.Sheets[nome];
+  if(!ws || !ws["!ref"]) return {nome, aoa:[], r0:0, c0:0};
+  const rg = XLSX.utils.decode_range(ws["!ref"]);
+  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, blankrows:true, raw:true});
+  return {nome, aoa, r0:rg.s.r, c0:rg.s.c};
+}
+
+/* che file è: cerca nelle prime 30 righe un'intestazione con tutte le colonne obbligatorie */
+function riconosci(aoa){
+  let best = null;
+  for(let i = 0; i < Math.min(aoa.length, 30); i++){
+    const set = new Set((aoa[i] || []).map(norm));
+    for(const kind of ["inv", "bil", "giac"]){
+      const req = OBBLIGATORIE[kind];
+      const manca = req.filter(k => !COLS[kind][k].some(n => set.has(n)));
+      const score = (req.length - manca.length) / req.length;
+      if(!best || score > best.score) best = {kind, h:i, score, manca:manca.map(k => NOMI_COL[kind][k])};
+    }
+    if(best.score === 1) break;
+  }
+  return best;
+}
+
+/* indice della prima colonna con ciascun nome atteso (la prima "Articolo", non "Codice Articolo") */
+function indici(header, kind){
+  const h = (header || []).map(norm), ix = {};
+  Object.keys(COLS[kind]).forEach(k => {
+    ix[k] = -1;
+    for(let c = 0; c < h.length; c++) if(COLS[kind][k].indexOf(h[c]) > -1){ ix[k] = c; break; }
+  });
+  return ix;
+}
+
+function parseGiac(sh, h){
+  const ix = indici(sh.aoa[h], "giac");
+  const recs = [];
+  let nonNum = 0;
+  for(let i = h + 1; i < sh.aoa.length; i++){
+    const r = sh.aoa[i];
+    if(!r) continue;
+    const art = toCode(r[ix.art]);
+    if(!art) continue;
+    let colli = toNum(r[ix.colli]), pezzi = toNum(r[ix.pezzi]);
+    if(isNaN(colli)){ colli = 0; nonNum++; }
+    if(isNaN(pezzi)){ pezzi = 0; nonNum++; }
+    const um = ix.um >= 0 ? clean(r[ix.um]) : "";
+    const m = /\(\s*(\d+(?:[.,]\d+)?)\s*PEZZ/i.exec(um);            // "COLLI (6 PEZZI)"
+    const nPz = m ? Number(m[1].replace(",", ".")) : (colli > 0 ? r3(pezzi / colli) : null);
+    recs.push({art, key:chiave(art), desc: ix.desc >= 0 ? clean(r[ix.desc]) : "",
+               stato: clean(r[ix.stato]).toUpperCase() || "(VUOTO)", colli, pezzi, nPz});
+  }
+  /* riepilogo per stato contabile, indipendente dalle impostazioni */
+  const stati = new Map();
+  recs.forEach(r => {
+    let s = stati.get(r.stato);
+    if(!s){ s = {udc:0, arts:new Set(), colli:0, pezzi:0}; stati.set(r.stato, s); }
+    s.udc++; s.arts.add(r.key); s.colli += r.colli; s.pezzi += r.pezzi;
+  });
+  return {recs, stati, nonNum, h, nArt: new Set(recs.map(r => r.key)).size};
+}
+
+function parseInv(sh, h){
+  const ix = indici(sh.aoa[h], "inv");
+  const head = sh.aoa[h] || [];
+  let cMin = Infinity, cMax = -1;
+  head.forEach((v, j) => { if(clean(v)){ cMin = Math.min(cMin, j); cMax = Math.max(cMax, j); } });
+  const recs = [];
+  let nonNum = 0;
+  for(let i = h + 1; i < sh.aoa.length; i++){
+    const r = sh.aoa[i];
+    if(!r) continue;
+    const art = toCode(r[ix.art]);
+    if(!art) continue;
+    let g = toNum(r[ix.giac]);
+    if(isNaN(g)){ g = 0; nonNum++; }
+    const qv = ix.qxc >= 0 ? r[ix.qxc] : null;
+    const q = (qv === null || qv === "") ? NaN : toNum(qv);
+    recs.push({riga: sh.r0 + i + 1, i, art, key:chiave(art), desc: ix.desc >= 0 ? clean(r[ix.desc]) : "",
+               um: clean(r[ix.um]).toUpperCase(), qxc: isNaN(q) ? null : q, giac:g});
+  }
+  /* colonne in numerazione assoluta del foglio (0 = A) */
+  const col = {};
+  Object.keys(ix).forEach(k => { col[k] = ix[k] >= 0 ? sh.c0 + ix[k] : -1; });
+  return {recs, nonNum, h, ix, col, cMin: sh.c0 + cMin, cMax: sh.c0 + cMax, aoa: sh.aoa, r0: sh.r0, c0: sh.c0};
+}
+
+function parseBil(sh, h){
+  const ix = indici(sh.aoa[h], "bil");
+  const map = new Map(), anag = new Map(), filiali = new Set(), mags = new Set();
+  let nonNum = 0, dup = 0, righe = 0;
+  for(let i = h + 1; i < sh.aoa.length; i++){
+    const r = sh.aoa[i];
+    if(!r) continue;
+    const art = toCode(r[ix.art]);
+    if(!art) continue;
+    righe++;
+    const key = chiave(art);
+    const mag = clean(r[ix.mag]).toUpperCase() || "(VUOTO)";
+    let g = toNum(r[ix.giac]);
+    if(isNaN(g)){ g = 0; nonNum++; }
+    if(ix.fil >= 0) filiali.add(clean(r[ix.fil]));
+    mags.add(mag);
+    if(!anag.has(key)){
+      const qv = ix.qxc >= 0 ? r[ix.qxc] : null;
+      const q = (qv === null || qv === "") ? NaN : toNum(qv);
+      anag.set(key, {art, desc: ix.desc >= 0 ? clean(r[ix.desc]) : "", um: clean(r[ix.um]).toUpperCase(),
+                     qxc: isNaN(q) ? null : q});
+    }
+    const k = key + "|" + mag;
+    const e = map.get(k);
+    if(e){ e.giac += g; dup++; } else map.set(k, {key, mag, giac:g});
+  }
+  return {map, anag, filiali, mags:[...mags], nonNum, dup, righe, h};
+}
+
+/* ---------- impostazioni predefinite per i file caricati ---------- */
+function preparaConfig(){
+  if(ST.giac) ST.giac.stati.forEach((_, stato) => {
+    if(!ST.statoMag.has(stato)) ST.statoMag.set(stato, STATO_DEFAULT[stato] || STATO_ALTRI);
+  });
+  if(ST.cli){
+    umCliente().forEach((_, um) => { if(!ST.umConta.has(um)) ST.umConta.set(um, UM_DEFAULT[um] || UM_ALTRE); });
+    if(ST.cli.kind === "bil") ST.cli.mags.slice().sort(nat).forEach(m => {
+      if(!ST.mags.some(x => x.cod === m)) ST.mags.push({cod:m, nome:m, extra:true});
+    });
+  }
+}
+/* U.M. presenti nel file del cliente, con il numero di articoli */
+function umCliente(){
+  const m = new Map();
+  if(!ST.cli) return m;
+  if(ST.cli.kind === "inv") ST.cli.recs.forEach(r => m.set(r.um, (m.get(r.um) || 0) + 1));
+  else ST.cli.anag.forEach(a => m.set(a.um, (m.get(a.um) || 0) + 1));
+  return m;
+}
+const unitaDi = um => ST.umConta.get(um) || UM_ALTRE;
+const nomeMag = cod => (ST.mags.find(m => m.cod === cod) || {nome:cod}).nome;
+
+/* ---------- calcolo ---------- */
+/* nostra giacenza per articolo e magazzino del cliente, secondo la tabella degli stati */
+function aggrega(){
+  const our = new Map();
+  ST.giac.recs.forEach(r => {
+    const mag = ST.statoMag.get(r.stato) || STATO_ALTRI;
+    let o = our.get(r.key);
+    if(!o){ o = {art:r.art, desc:r.desc, nPz:null, mag:new Map()}; our.set(r.key, o); }
+    if(!o.desc && r.desc) o.desc = r.desc;
+    if(o.nPz === null && r.nPz !== null) o.nPz = r.nPz;
+    let q = o.mag.get(mag);
+    if(!q){ q = {colli:0, pezzi:0, udc:0}; o.mag.set(mag, q); }
+    q.colli += r.colli; q.pezzi += r.pezzi; q.udc++;
+  });
+  return our;
+}
+function quanti(o, mag, unita){
+  if(!o) return 0;
+  const q = o.mag.get(mag);
+  return q ? r3(q[unita]) : 0;
+}
+function esito(cli, nos){
+  if(Math.abs(r3(cli - nos)) < 0.0005) return "pari";
+  if(cli === 0) return "nostra";          // il cliente non ce l'ha, noi sì: riga rossa
+  if(nos === 0) return "cliente";
+  return "diff";
+}
+const elenco = (arr, n) => arr.slice(0, n || 10).join(", ") + (arr.length > (n || 10) ? "…" : "");
+
+/* umUsate: U.M. degli articoli che entrano davvero nel confronto */
+function avvisiComuni(avv, umUsate){
+  const nuovi = [...ST.giac.stati.keys()].filter(s => STATI_NOTI.indexOf(s) < 0);
+  if(nuovi.length)
+    avv.push(["warn", `Stati contabili non previsti: ${nuovi.join(", ")}. Li ho messi in ${STATO_ALTRI}: `
+      + "controlla la tabella degli stati."]);
+  const umNuove = [...new Set(umUsate)].filter(u => u && !UM_DEFAULT[u]).sort(nat);
+  if(umNuove.length)
+    avv.push(["warn", `U.M. non previste: ${umNuove.join(", ")}. Le conto a colli: cambiale nella tabella se serve.`]);
+  if(ST.giac.nonNum)
+    avv.push(["warn", `${fmtInt(ST.giac.nonNum)} quantità della Giacenza UdC non sono numeri: contate come 0.`]);
+}
+
+function calcInv(our){
+  const T = ST.cli, mag = ST.magTab, avv = [];
+  const visti = new Set(), dupl = [], qxcKo = [], righe = [];
+  T.recs.forEach(r => {
+    const o = our.get(r.key), un = unitaDi(r.um);
+    const dup = visti.has(r.key);
+    if(dup) dupl.push(r.art);
+    visti.add(r.key);
+    const nos = dup ? 0 : quanti(o, mag, un);
+    if(un === "colli" && o && r.qxc !== null && o.nPz !== null && r.qxc !== o.nPz) qxcKo.push(r.art);
+    righe.push({tipo:"tab", riga:r.riga, art:r.art, key:r.key, desc: r.desc || (o ? o.desc : ""), um:r.um, un,
+                qxcCli:r.qxc, qxcNos: o ? o.nPz : null, cli:r.giac, nos, diff:r3(r.giac - nos),
+                per: ST.mags.map(m => quanti(o, m.cod, un)), presente: !!o, esito: esito(r.giac, nos)});
+  });
+  /* articoli che ha solo la nostra giacenza, con merce nel magazzino del tabulato */
+  const agg = [];
+  our.forEach((o, key) => {
+    if(visti.has(key)) return;
+    const q = o.mag.get(mag);
+    if(!q || (r3(q.colli) === 0 && r3(q.pezzi) === 0)) return;
+    const um = ST.umAgg.get(key) || "";
+    const un = um ? unitaDi(um) : "colli";
+    const nos = quanti(o, mag, un);
+    agg.push({tipo:"agg", riga:null, art:o.art, key, desc:o.desc, um, un, qxcCli:null, qxcNos:o.nPz,
+              cli:0, nos, diff:r3(-nos), per: ST.mags.map(m => quanti(o, m.cod, un)), presente:true,
+              esito: esito(0, nos)});
+  });
+  agg.sort((a, b) => nat(a.art, b.art));
+
+  avvisiComuni(avv, righe.concat(agg).map(x => x.um));
+  if(dupl.length)
+    avv.push(["warn", `${dupl.length} ${pl(dupl.length, "articolo compare", "articoli compaiono")} più volte nel tabulato (${elenco(dupl)}): conta click `
+      + "è scritto solo sulla prima riga, sulle altre resta 0."]);
+  if(qxcKo.length)
+    avv.push(["warn", `Per ${qxcKo.length} ${pl(qxcKo.length, "articolo contato", "articoli contati")} a colli i pezzi per collo del tabulato (s_qtaxc) non `
+      + `coincidono con i nostri: controlla l'unità di misura (${elenco(qxcKo)}).`]);
+  if(T.nonNum)
+    avv.push(["warn", `${fmtInt(T.nonNum)} righe del tabulato hanno una giacenza non numerica: contate come 0.`]);
+  if(!T.zip)
+    avv.push(["warn", "Il tabulato è in formato .xls: non posso compilarlo lasciandolo identico. Scarichi un "
+      + ".xlsx nuovo con le stesse colonne, senza la grafica del file originale."]);
+
+  const tab = righe;
+  return {modo:"inv", righe: tab.concat(agg), avv,
+          k: {tab: tab.length, pari: tab.filter(x => x.esito === "pari").length,
+              diff: tab.filter(x => x.esito !== "pari").length, agg: agg.length,
+              assenti: tab.filter(x => !x.presente).length}};
+}
+
+function calcBil(our){
+  const B = ST.cli, avv = [], righe = [], qxcKo = new Set(), fuori = new Set();
+  const chiavi = new Map();
+  B.map.forEach((e, k) => { if(r3(e.giac) !== 0) chiavi.set(k, {key:e.key, mag:e.mag}); });
+  our.forEach((o, key) => o.mag.forEach((q, mag) => {
+    if(r3(q.colli) !== 0 || r3(q.pezzi) !== 0) chiavi.set(key + "|" + mag, {key, mag});
+  }));
+  chiavi.forEach((c, k) => {
+    const info = B.anag.get(c.key), o = our.get(c.key);
+    const um = info ? info.um : "";
+    const un = info ? unitaDi(um) : "colli";
+    const cli = r3((B.map.get(k) || {giac:0}).giac);
+    const nos = quanti(o, c.mag, un);
+    if(cli === 0 && nos === 0) return;
+    if(!info) fuori.add(o.art);
+    if(un === "colli" && info && o && info.qxc !== null && o.nPz !== null && info.qxc !== o.nPz) qxcKo.add(info.art);
+    righe.push({tipo:"bil", art: info ? info.art : o.art, key:c.key, desc: (info && info.desc) || (o ? o.desc : ""),
+                um, un, qxcCli: info ? info.qxc : null, qxcNos: o ? o.nPz : null, mag:c.mag,
+                cli, nos, diff:r3(cli - nos), esito: esito(cli, nos)});
+  });
+  const ord = new Map(ST.mags.map((m, i) => [m.cod, i]));
+  righe.sort((a, b) => nat(a.art, b.art) || ((ord.get(a.mag) ?? 99) - (ord.get(b.mag) ?? 99)));
+
+  /* riepilogo per magazzino */
+  const perMag = ST.mags.map(m => {
+    const r = righe.filter(x => x.mag === m.cod);
+    return {cod:m.cod, nome:m.nome, n:r.length, pari:r.filter(x => x.esito === "pari").length,
+            diff:r.filter(x => x.esito === "diff").length, cliente:r.filter(x => x.esito === "cliente").length,
+            nostra:r.filter(x => x.esito === "nostra").length};
+  }).filter(x => x.n > 0 || MAG_DEFAULT.some(m => m.cod === x.cod));
+
+  avvisiComuni(avv, righe.map(x => x.um));
+  if(fuori.size)
+    avv.push(["warn", `${fuori.size} ${pl(fuori.size, "articolo della nostra giacenza non è", "articoli della nostra giacenza non sono")} nell'anagrafica Bollicine `
+      + `(${elenco([...fuori])}): ${pl(fuori.size, "lo", "li")} conto a colli.`]);
+  if(qxcKo.size)
+    avv.push(["warn", `Per ${qxcKo.size} ${pl(qxcKo.size, "articolo contato", "articoli contati")} a colli i pezzi per collo di Bollicine (qxc) non `
+      + `coincidono con i nostri: controlla l'unità di misura (${elenco([...qxcKo])}).`]);
+  if(B.filiali.size > 1)
+    avv.push(["warn", `Il file Bollicine contiene più filiali (${[...B.filiali].join(", ")}): le giacenze dello `
+      + "stesso articolo e magazzino vengono sommate."]);
+  if(B.dup)
+    avv.push(["warn", `${fmtInt(B.dup)} righe del file Bollicine ripetono articolo e magazzino: giacenze sommate.`]);
+  if(B.nonNum)
+    avv.push(["warn", `${fmtInt(B.nonNum)} giacenze del file Bollicine non sono numeri: contate come 0.`]);
+  const extra = ST.mags.filter(m => m.extra).map(m => m.cod);
+  if(extra.length)
+    avv.push(["warn", `Nel file Bollicine ci sono magazzini non previsti (${extra.join(", ")}): nessuno stato `
+      + "contabile vi confluisce finché non lo assegni nella tabella."]);
+
+  return {modo:"bil", righe, avv, perMag,
+          k: {n:righe.length, pari:righe.filter(x => x.esito === "pari").length,
+              diff:righe.filter(x => x.esito !== "pari").length, nostra:righe.filter(x => x.esito === "nostra").length}};
+}
+
+/* ---------- disegno ---------- */
+function disegnaModo(){
+  document.querySelectorAll("button.modo").forEach(b => b.classList.toggle("on", b.dataset.modo === ST.modo));
+  $("modoHint").innerHTML = MODI[ST.modo].hint;
+  $("labCli").textContent = "File cliente · " + MODI[ST.modo].cliente;
+}
+
+function disegnaSlot(){
+  const g = ST.giac, c = ST.cli;
+  const set = (id, nome, meta) => {
+    const n = $(id);
+    n.classList.toggle("empty", !nome);
+    n.querySelector(".fname").textContent = nome || "nessun file";
+    n.querySelector(".meta").textContent = meta || "";
+  };
+  set("slotGiac", g && g.nome, g && `${fmtInt(g.recs.length)} UdC · ${fmtInt(g.nArt)} articoli · intestazione alla riga ${g.r0 + g.h + 1}`);
+  let meta = "";
+  if(c && c.kind === "inv") meta = `Tabulato inventario · ${fmtInt(c.recs.length)} righe · foglio “${c.foglio}”`;
+  if(c && c.kind === "bil") meta = `Giacenza Bollicine · ${fmtInt(c.righe)} righe · magazzini ${c.mags.slice().sort(nat).join(", ")}`;
+  set("slotCli", c && c.nome, meta);
+  $("reset").disabled = !(g || c);
+}
+
+function opzioniMag(sel){
+  return ST.mags.map(m => `<option value="${esc(m.cod)}"${m.cod === sel ? " selected" : ""}>${esc(m.nome)}</option>`).join("");
+}
+
+function disegnaConfig(){
+  const g = ST.giac, c = ST.cli;
+  $("config").classList.toggle("hidden", !(g || c));
+  $("cfgStatiWrap").classList.toggle("hidden", !g);
+  $("cfgUmWrap").classList.toggle("hidden", !c);
+  $("magTabWrap").classList.toggle("hidden", ST.modo !== "inv");
+  $("magTab").innerHTML = opzioniMag(ST.magTab);
+  if(g){
+    const stati = [...g.stati.entries()].sort((a, b) => b[1].udc - a[1].udc || nat(a[0], b[0]));
+    $("cfgStati").innerHTML = stati.map(([s, v]) =>
+        `<tr><td>${esc(s)}</td><td class="num">${fmtInt(v.udc)}</td><td class="num">${fmtInt(v.arts.size)}</td>`
+      + `<td class="num">${fmtQ(v.colli)}</td><td class="num">${fmtQ(v.pezzi)}</td>`
+      + `<td><select data-stato="${esc(s)}">${opzioniMag(ST.statoMag.get(s))}</select></td></tr>`).join("");
+  }
+  if(c){
+    const ums = [...umCliente().entries()].sort((a, b) => nat(a[0], b[0]));
+    $("cfgUm").innerHTML = ums.map(([u, n]) => {
+      const v = unitaDi(u);
+      return `<tr><td>${u ? esc(u) : "(vuota)"}</td><td class="num">${fmtInt(n)}</td>`
+        + `<td><select data-um="${esc(u)}">`
+        + `<option value="colli"${v === "colli" ? " selected" : ""}>colli (Quantità Stoccata)</option>`
+        + `<option value="pezzi"${v === "pezzi" ? " selected" : ""}>pezzi (Pezzi Stoccati)</option>`
+        + `</select></td></tr>`;
+    }).join("");
+  }
+}
+
+function ricalcola(){
+  $("warns").innerHTML = "";
+  ST.ris = null;
+  const g = ST.giac, c = ST.cli;
+  if(c && c.kind !== ST.modo){
+    avviso("err", `Il file cliente “${c.nome}” è ${NOMI_TIPO[c.kind]}: per il confronto ${MODI[ST.modo].nome} `
+      + `serve ${NOMI_TIPO[ST.modo]}. Scegli l'altro confronto qui sopra o carica il file giusto.`);
+  }
+  if(!g || !c || c.kind !== ST.modo){
+    $("out").classList.add("hidden");
+    return;
+  }
+  const our = aggrega();
+  ST.ris = ST.modo === "inv" ? calcInv(our) : calcBil(our);
+  ST.ris.avv.forEach(a => avviso(a[0], a[1]));
+  disegnaRisultati();
+}
+
+function avviso(kind, text){
+  const d = document.createElement("div");
+  d.className = "msg " + kind;
+  d.textContent = text;
+  $("warns").appendChild(d);
+}
+
+function disegnaRisultati(){
+  const R = ST.ris, inv = R.modo === "inv";
+  $("out").classList.remove("hidden");
+  $("outModo").textContent = MODI[R.modo].nome;
+  $("outFile").textContent = `${ST.giac.nome}  ↔  ${ST.cli.nome}` + (inv ? ` · magazzino ${nomeMag(ST.magTab)}` : "");
+  const K = inv
+    ? [["Righe del tabulato", R.k.tab], ["Pari", R.k.pari], ["Con differenza", R.k.diff], ["Righe aggiunte", R.k.agg]]
+    : [["Righe confrontate", R.k.n], ["Pari", R.k.pari], ["Con differenza", R.k.diff], ["Solo nostre", R.k.nostra]];
+  K.forEach((x, i) => { $("k" + (i + 1)).textContent = x[0]; $("v" + (i + 1)).textContent = fmtInt(x[1]); });
+
+  if(inv){
+    $("perMag").innerHTML = "";
+    $("outHint").innerHTML = `${fmtInt(R.k.assenti)} ${pl(R.k.assenti, "articolo del tabulato non è", "articoli del tabulato non sono")} nella nostra giacenza (conta click 0). `
+      + `Le ${fmtInt(R.k.agg)} righe aggiunte sono gli articoli che abbiamo solo noi nel magazzino ${esc(nomeMag(ST.magTab))}: `
+      + "per ciascuna scegli l'U.M. nella tabella, decide colli o pezzi e finisce nella colonna art_um. "
+      + "Senza scelta resta vuota e si conta a colli.";
+  } else {
+    $("perMag").innerHTML = `<div class="tablewrap" style="max-height:none"><table class="mini"><thead><tr>`
+      + `<th>Magazzino</th><th class="num">Righe</th><th class="num">Pari</th><th class="num">Differenza</th>`
+      + `<th class="num">Solo Bollicine</th><th class="num">Solo nostre</th></tr></thead><tbody>`
+      + R.perMag.map(m => `<tr><td>${esc(m.nome)}</td><td class="num">${fmtInt(m.n)}</td><td class="num">${fmtInt(m.pari)}</td>`
+        + `<td class="num">${fmtInt(m.diff)}</td><td class="num">${fmtInt(m.cliente)}</td><td class="num">${fmtInt(m.nostra)}</td></tr>`).join("")
+      + `</tbody></table></div>`;
+    $("outHint").innerHTML = "Una riga per articolo e magazzino, solo dove almeno una delle due parti ha merce. "
+      + "Differenza = Bollicine − nostra. Il file scaricato contiene tutte le righe, con il filtro automatico, "
+      + "e nel secondo foglio le impostazioni usate.";
+  }
+  $("chipCli").textContent = inv ? "Solo cliente" : "Solo Bollicine";
+  $("magFiltro").classList.toggle("hidden", inv);
+  if(!inv){
+    const v = ST.magFiltro;
+    $("magFiltro").innerHTML = `<option value="">tutti i magazzini</option>`
+      + ST.mags.map(m => `<option value="${esc(m.cod)}"${m.cod === v ? " selected" : ""}>${esc(m.nome)}</option>`).join("");
+  }
+  $("scarica").textContent = inv ? "Scarica il tabulato compilato" : "Scarica il bilanciamento";
+  $("scarica").disabled = typeof JSZip === "undefined";
+  disegnaTabella();
+}
+
+function righeFiltrate(){
+  const R = ST.ris, q = norm($("cerca").value), f = ST.filtro;
+  return R.righe.filter(x => {
+    if(f === "diff" && x.esito === "pari") return false;
+    if(f === "cliente" && x.esito !== "cliente") return false;
+    if(f === "nostra" && x.esito !== "nostra") return false;
+    if(R.modo === "bil" && ST.magFiltro && x.mag !== ST.magFiltro) return false;
+    return !q || norm(x.art + " " + x.desc).indexOf(q) > -1;
+  });
+}
+
+function etichetta(x){
+  if(x.tipo === "agg") return `<span class="tag nostra">Aggiunta</span>`;
+  const L = {pari:"Pari", diff:"Differenza", cliente: ST.ris.modo === "bil" ? "Solo Bollicine" : "Solo cliente",
+             nostra:"Solo nostra"};
+  return `<span class="tag ${x.esito}">${L[x.esito]}</span>`;
+}
+
+function disegnaTabella(){
+  const R = ST.ris, inv = R.modo === "inv", wrap = $("tabwrap"), top = wrap.scrollTop;
+  const lista = righeFiltrate();
+  const umList = [...ST.umConta.keys()].filter(Boolean).sort(nat);
+  let h = "<thead><tr>";
+  if(inv){
+    h += "<th>Riga</th><th>Articolo</th><th>Descrizione</th><th>U.M.</th><th>Conteggio</th>"
+       + "<th class='num'>Pz/collo cliente</th><th class='num'>Pz/collo nostri</th>"
+       + "<th class='num'>Giacenza cliente</th><th class='num'>Conta click</th><th class='num'>Diff</th><th>Esito</th>"
+       + ST.mags.map(m => `<th class="num">Nostra ${esc(m.cod)}</th>`).join("");
+  } else {
+    h += "<th>Articolo</th><th>Descrizione</th><th>U.M.</th><th>Conteggio</th>"
+       + "<th class='num'>Pz/collo Bollicine</th><th class='num'>Pz/collo nostri</th><th>Magazzino</th>"
+       + "<th class='num'>Giacenza Bollicine</th><th class='num'>Nostra giacenza</th><th class='num'>Differenza</th><th>Esito</th>";
+  }
+  h += "</tr></thead><tbody>";
+  lista.slice(0, MAX_RIGHE).forEach(x => {
+    const cls = x.esito === "nostra" ? ' class="rosso"' : "";
+    const dz = x.diff ? "num dz" : "num";
+    let um = esc(x.um);
+    if(x.tipo === "agg"){
+      um = `<select class="umagg" data-key="${esc(x.key)}"><option value="">—</option>`
+         + umList.map(u => `<option${u === x.um ? " selected" : ""}>${esc(u)}</option>`).join("") + `</select>`;
+    }
+    if(inv){
+      h += `<tr${cls}><td>${x.riga === null ? "nuova" : x.riga}</td><td>${esc(x.art)}</td><td class="desc">${esc(x.desc)}</td>`
+         + `<td>${um}</td><td>${x.un}</td><td class="num">${fmtQ(x.qxcCli)}</td><td class="num">${fmtQ(x.qxcNos)}</td>`
+         + `<td class="num">${fmtQ(x.cli)}</td><td class="num"><strong>${fmtQ(x.nos)}</strong></td>`
+         + `<td class="${dz}">${fmtSegno(x.diff)}</td><td>${etichetta(x)}</td>`
+         + x.per.map(v => `<td class="num">${v ? fmtQ(v) : ""}</td>`).join("") + `</tr>`;
+    } else {
+      h += `<tr${cls}><td>${esc(x.art)}</td><td class="desc">${esc(x.desc)}</td><td>${um || "—"}</td><td>${x.un}</td>`
+         + `<td class="num">${fmtQ(x.qxcCli)}</td><td class="num">${fmtQ(x.qxcNos)}</td><td>${esc(nomeMag(x.mag))}</td>`
+         + `<td class="num">${fmtQ(x.cli)}</td><td class="num">${fmtQ(x.nos)}</td><td class="${dz}">${fmtSegno(x.diff)}</td>`
+         + `<td>${etichetta(x)}</td></tr>`;
+    }
+  });
+  if(!lista.length) h += `<tr><td colspan="15">Nessuna riga con questi filtri.</td></tr>`;
+  $("tab").innerHTML = h + "</tbody>";
+  wrap.scrollTop = top;
+  $("conteggio").textContent = `${fmtInt(lista.length)} righe` + (lista.length > MAX_RIGHE
+    ? ` (mostrate le prime ${fmtInt(MAX_RIGHE)}: usa i filtri o la ricerca; il file scaricato le contiene tutte)` : "");
+}
+
+/* ---------- caricamento ---------- */
+async function caricaFile(list){
+  clearMsg();
+  if(typeof XLSX === "undefined"){ libreriaMancante(); return; }
+  const files = Array.from(list).filter(f => /\.(xlsx|xlsm|xls)$/i.test(f.name));
+  if(!files.length){ msg("Trascina file Excel (.xlsx o .xls).", "err"); return; }
+  const presi = {};
+  for(const f of files){
+    let buf, sh;
+    try{ buf = await leggiFile(f); sh = primoFoglio(buf); }
+    catch(err){ msg(`Non riesco a leggere ${f.name}: ${err.message}`, "err"); continue; }
+    const ric = riconosci(sh.aoa);
+    if(!ric || ric.score < 1){
+      msg(`Non riconosco ${f.name}: non è né una Giacenza UdC, né un tabulato inventario, né una giacenza Bollicine.`
+        + (ric && ric.score >= 0.5 ? ` Sembra ${NOMI_TIPO[ric.kind]}, ma mancano le colonne ${ric.manca.join(", ")}.` : ""), "err");
+      continue;
+    }
+    const tipo = ric.kind === "giac" ? "giac" : "cli";
+    if(presi[tipo]){ msg(`Hai caricato due file dello stesso tipo: uso ${presi[tipo]} e ignoro ${f.name}.`, "warn"); continue; }
+    presi[tipo] = f.name;
+    if(ric.kind === "giac"){
+      const g = parseGiac(sh, ric.h);
+      if(!g.recs.length){ msg(`${f.name}: nessuna UdC con un articolo sotto l'intestazione.`, "err"); continue; }
+      ST.giac = {nome:f.name, foglio:sh.nome, r0:sh.r0, ...g};
+    } else {
+      const d = ric.kind === "inv" ? parseInv(sh, ric.h) : parseBil(sh, ric.h);
+      if(ric.kind === "inv" ? !d.recs.length : !d.righe){ msg(`${f.name}: nessuna riga con un articolo.`, "err"); continue; }
+      ST.cli = {nome:f.name, foglio:sh.nome, kind:ric.kind, zip:isZip(buf), buf, ...d};
+      if(ric.kind !== ST.modo){
+        ST.modo = ric.kind;
+        msg(`${f.name} è ${NOMI_TIPO[ric.kind]}: confronto impostato su ${MODI[ric.kind].nome}.`, "info");
+      }
+    }
+  }
+  preparaConfig();
+  disegnaModo(); disegnaSlot(); disegnaConfig();
+  ricalcola();
+}
+
+function ricomincia(){
+  ST.giac = null; ST.cli = null; ST.ris = null;
+  ST.mags = MAG_DEFAULT.map(m => ({...m}));
+  ST.statoMag.clear(); ST.umConta.clear(); ST.umAgg.clear();
+  ST.magTab = "01"; ST.filtro = "tutte"; ST.magFiltro = "";
+  $("cerca").value = ""; $("file").value = "";
+  document.querySelectorAll("button.chip").forEach(c => c.classList.toggle("on", c.dataset.f === "tutte"));
+  clearMsg(); $("warns").innerHTML = "";
+  $("out").classList.add("hidden");
+  disegnaModo(); disegnaSlot(); disegnaConfig();
+}
+
+/* ---------- XML degli Excel ---------- */
+const pulisciXml = s => String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g, "");
+const escXml = s => pulisciXml(s).replace(/[&<>"]/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;"}[c]));
+const figli = (el, nome) => Array.from(el.childNodes).filter(n => n.nodeType === 1 && (!nome || n.localName === nome));
+
+async function apriXml(zip, path){
+  const f = zip.file(path);
+  if(!f) return null;
+  const doc = new DOMParser().parseFromString(await f.async("string"), "application/xml");
+  if(doc.getElementsByTagName("parsererror").length) throw new Error("XML non leggibile in " + path);
+  return doc;
+}
+function salvaXml(zip, path, doc){
+  const s = new XMLSerializer().serializeToString(doc).replace(/^<\?xml[^>]*\?>\s*/, "");
+  zip.file(path, XML_DECL + s);
+}
+/* percorso di una parte a partire dalla cartella di chi la cita */
+function risolvi(base, target){
+  const parti = (target.startsWith("/") ? target.slice(1) : base + target).split("/"), out = [];
+  parti.forEach(p => { if(p === "..") out.pop(); else if(p && p !== ".") out.push(p); });
+  return out.join("/");
+}
+/* "A1:G1091" -> "A1:G<riga>" se il riferimento copriva fino all'ultima riga di dati */
+function estendi(ref, ultimaDati, nuovaUltima){
+  const m = /^(.*:)?(\$?[A-Z]+\$?)(\d+)$/.exec(ref);
+  if(!m || !m[1] || +m[3] < ultimaDati) return ref;
+  return m[1] + m[2] + nuovaUltima;
+}
+
+/* ---------- uscita 1 · INVENTARIO: il file del cliente compilato ---------- */
+async function scaricaInventario(){
+  const T = ST.cli, R = ST.ris;
+  const base = T.nome.replace(/\.[^.]+$/, "");
+  if(!T.zip){ scarica(await tabulatoNuovo(), base + "_compilato.xlsx"); return; }
+
+  const zip = await JSZip.loadAsync(T.buf);
+  /* workbook, primo foglio e stili, seguendo le relazioni */
+  const rels = await apriXml(zip, "_rels/.rels");
+  const relWb = [...rels.getElementsByTagNameNS(NS_REL, "Relationship")]
+    .find(r => /\/officeDocument$/.test(r.getAttribute("Type")));
+  const wbPath = risolvi("", relWb.getAttribute("Target"));
+  const wbDir = wbPath.replace(/[^/]*$/, "");
+  const wbRelsPath = wbDir + "_rels/" + wbPath.split("/").pop() + ".rels";
+  const wb = await apriXml(zip, wbPath), wbRels = await apriXml(zip, wbRelsPath);
+  const relList = [...wbRels.getElementsByTagNameNS(NS_REL, "Relationship")];
+  const relTipo = tipo => relList.find(r => r.getAttribute("Type").endsWith("/" + tipo));
+  const sheetEl = wb.getElementsByTagNameNS(NS_MAIN, "sheet")[0];
+  const relSh = relList.find(r => r.getAttribute("Id") === sheetEl.getAttributeNS(NS_R, "id"));
+  const shPath = risolvi(wbDir, relSh.getAttribute("Target"));
+  const sh = await apriXml(zip, shPath);
+  const relSt = relTipo("styles");
+  const stPath = relSt ? risolvi(wbDir, relSt.getAttribute("Target")) : null;
+  const st = stPath ? await apriXml(zip, stPath) : null;
+  const rosso = stiliRossi(st);
+
+  const NS = sh.documentElement.namespaceURI;
+  const sd = sh.getElementsByTagNameNS(NS, "sheetData")[0];
+  const righe = new Map();
+  let prev = 0;
+  figli(sd, "row").forEach(row => {
+    const r = row.hasAttribute("r") ? +row.getAttribute("r") : prev + 1;
+    righe.set(r, row); prev = r;
+  });
+  const ultimaFoglio = Math.max(0, ...righe.keys());
+  const tab = R.righe.filter(x => x.tipo === "tab");
+  const ultimaDati = Math.max(...tab.map(x => x.riga));
+  const C = T.col;
+  const formula = r => colLett(C.giac) + r + "-" + colLett(C.conta) + r;
+  const coloraRiga = row => figli(row, "c").forEach(c => {
+    const s = rosso(c.getAttribute("s"));
+    if(s !== null) c.setAttribute("s", s);
+  });
+
+  /* righe del tabulato: conta click, valore della diff, eventuale colore */
+  tab.forEach(x => {
+    const row = righe.get(x.riga);
+    if(!row) throw new Error("riga " + x.riga + " non trovata nel foglio");
+    numero(sh, cella(sh, row, x.riga, C.conta), x.nos);
+    if(C.diff >= 0) formulaCella(sh, cella(sh, row, x.riga, C.diff), formula(x.riga), x.diff);
+    if(x.esito === "nostra") coloraRiga(row);
+  });
+
+  /* righe aggiunte in fondo, con lo stile della colonna nell'ultima riga del tabulato, in rosso */
+  const modello = new Map();
+  const ultimaRiga = righe.get(ultimaDati);
+  figli(ultimaRiga, "c").forEach((c, i) => {
+    const n = c.hasAttribute("r") ? colNum(c.getAttribute("r")) : i;
+    modello.set(n, c.getAttribute("s"));
+  });
+  let rr = ultimaFoglio;
+  R.righe.filter(x => x.tipo === "agg").forEach(x => {
+    rr++;
+    const row = sh.createElementNS(NS, "row");
+    row.setAttribute("r", rr);
+    for(let col = T.cMin; col <= T.cMax; col++){
+      const c = sh.createElementNS(NS, "c");
+      c.setAttribute("r", colLett(col) + rr);
+      const s = rosso(modello.has(col) ? modello.get(col) : null);
+      if(s !== null) c.setAttribute("s", s);
+      if(col === C.art) testo(sh, c, x.art);
+      else if(col === C.desc) testo(sh, c, x.desc);
+      else if(col === C.um) testo(sh, c, x.um);
+      else if(col === C.qxc){ if(x.qxcNos !== null) numero(sh, c, x.qxcNos); }
+      else if(col === C.giac) numero(sh, c, 0);
+      else if(col === C.conta) numero(sh, c, x.nos);
+      else if(col === C.diff) formulaCella(sh, c, formula(rr), x.diff);
+      row.appendChild(c);
+    }
+    sd.appendChild(row);
+  });
+
+  /* area usata, filtro automatico e nome nascosto del filtro estesi alle righe nuove */
+  if(rr > ultimaFoglio){
+    const dim = sh.getElementsByTagNameNS(NS, "dimension")[0];
+    if(dim) dim.setAttribute("ref", estendi(dim.getAttribute("ref"), ultimaDati, rr));
+    figli(sh.documentElement, "autoFilter").forEach(af => af.setAttribute("ref", estendi(af.getAttribute("ref"), ultimaDati, rr)));
+    const idxFoglio = String(figli(sheetEl.parentNode, "sheet").indexOf(sheetEl));
+    [...wb.getElementsByTagNameNS(NS_MAIN, "definedName")].forEach(dn => {
+      if(dn.getAttribute("name") === "_xlnm._FilterDatabase" && dn.getAttribute("localSheetId") === idxFoglio)
+        dn.textContent = estendi(dn.textContent.trim(), ultimaDati, rr);
+    });
+  }
+
+  /* la catena di calcolo salvata non conosce le formule nuove: la tolgo e Excel ricalcola all'apertura */
+  const relCc = relTipo("calcChain");
+  if(relCc){
+    zip.remove(risolvi(wbDir, relCc.getAttribute("Target")));
+    relCc.parentNode.removeChild(relCc);
+    salvaXml(zip, wbRelsPath, wbRels);
+    const ct = await apriXml(zip, "[Content_Types].xml");
+    [...ct.getElementsByTagNameNS(NS_CT, "Override")]
+      .filter(o => /calcChain/i.test(o.getAttribute("PartName"))).forEach(o => o.parentNode.removeChild(o));
+    salvaXml(zip, "[Content_Types].xml", ct);
+  }
+  let cp = wb.getElementsByTagNameNS(NS_MAIN, "calcPr")[0];
+  if(!cp){
+    cp = wb.createElementNS(NS_MAIN, "calcPr");
+    const dopo = ["oleSize", "customWorkbookViews", "pivotCaches", "smartTagPr", "smartTagTypes", "webPublishing",
+                  "fileRecoveryPr", "webPublishObjects", "extLst"];
+    const prima = figli(wb.documentElement).find(n => dopo.indexOf(n.localName) > -1);
+    wb.documentElement.insertBefore(cp, prima || null);
+  }
+  cp.setAttribute("fullCalcOnLoad", "1");
+
+  salvaXml(zip, shPath, sh);
+  salvaXml(zip, wbPath, wb);
+  if(st) salvaXml(zip, stPath, st);
+  scarica(await zip.generateAsync({type:"blob", mimeType:MIME_XLSX, compression:"DEFLATE"}), base + "_compilato.xlsx");
+}
+
+/* stile con lo stesso formato di quello dato ma riempimento rosso chiaro; null se il file non ha stili */
+function stiliRossi(st){
+  const fills = st && st.getElementsByTagNameNS(NS_MAIN, "fills")[0];
+  const xfs = st && st.getElementsByTagNameNS(NS_MAIN, "cellXfs")[0];
+  if(!fills || !xfs) return () => null;
+  const fill = st.createElementNS(NS_MAIN, "fill"), pf = st.createElementNS(NS_MAIN, "patternFill");
+  const fg = st.createElementNS(NS_MAIN, "fgColor"), bg = st.createElementNS(NS_MAIN, "bgColor");
+  pf.setAttribute("patternType", "solid");
+  fg.setAttribute("rgb", ROSSO);
+  bg.setAttribute("indexed", "64");
+  pf.appendChild(fg); pf.appendChild(bg); fill.appendChild(pf); fills.appendChild(fill);
+  const fillId = figli(fills, "fill").length - 1;
+  fills.setAttribute("count", fillId + 1);
+  const orig = figli(xfs, "xf"), fatti = new Map();
+  return s => {
+    const k = (s === null || s === undefined || s === "") ? 0 : +s;
+    if(fatti.has(k)) return fatti.get(k);
+    const src = orig[k] || orig[0];
+    const xf = src ? src.cloneNode(true) : st.createElementNS(NS_MAIN, "xf");
+    if(!src) ["numFmtId", "fontId", "borderId", "xfId"].forEach(a => xf.setAttribute(a, "0"));
+    xf.setAttribute("fillId", fillId);
+    xf.setAttribute("applyFill", "1");
+    xfs.appendChild(xf);
+    const id = figli(xfs, "xf").length - 1;
+    xfs.setAttribute("count", id + 1);
+    fatti.set(k, String(id));
+    return String(id);
+  };
+}
+
+/* cella di una riga: la trova o la crea al suo posto, in ordine di colonna */
+function cella(doc, row, r, col){
+  let dopo = null, i = -1;
+  for(const c of figli(row, "c")){
+    i = c.hasAttribute("r") ? colNum(c.getAttribute("r")) : i + 1;
+    if(i === col) return c;
+    if(i > col){ dopo = c; break; }
+  }
+  const c = doc.createElementNS(row.namespaceURI, "c");
+  c.setAttribute("r", colLett(col) + r);
+  row.insertBefore(c, dopo);
+  return c;
+}
+function svuota(c){ while(c.firstChild) c.removeChild(c.firstChild); c.removeAttribute("t"); }
+function numero(doc, c, n){
+  svuota(c);
+  const v = doc.createElementNS(c.namespaceURI, "v");
+  v.textContent = String(r3(n));
+  c.appendChild(v);
+}
+function testo(doc, c, t){
+  svuota(c);
+  t = pulisciXml(t ?? "");
+  if(t === "") return;
+  c.setAttribute("t", "inlineStr");
+  const is = doc.createElementNS(c.namespaceURI, "is"), te = doc.createElementNS(c.namespaceURI, "t");
+  te.textContent = t;
+  if(/^\s|\s$/.test(t)) te.setAttributeNS(NS_XML, "xml:space", "preserve");
+  is.appendChild(te); c.appendChild(is);
+}
+/* formula: se la cella ne ha già una (anche condivisa) la tengo e aggiorno solo il valore calcolato */
+function formulaCella(doc, c, f, v){
+  const ha = figli(c, "f")[0];
+  if(ha){
+    figli(c).filter(n => n.localName !== "f").forEach(n => c.removeChild(n));
+    c.removeAttribute("t");
+  } else {
+    svuota(c);
+    const fe = doc.createElementNS(c.namespaceURI, "f");
+    fe.textContent = f;
+    c.appendChild(fe);
+  }
+  const ve = doc.createElementNS(c.namespaceURI, "v");
+  ve.textContent = String(r3(v));
+  c.appendChild(ve);
+}
+
+/* tabulato in .xls: stesse colonne in un .xlsx nuovo */
+async function tabulatoNuovo(){
+  const T = ST.cli, R = ST.ris, rel = j => j - T.c0;
+  const cols = [];
+  for(let j = T.cMin; j <= T.cMax; j++) cols.push(j);
+  const L = j => colLett(j - T.cMin);
+  const head = T.aoa[T.h] || [];
+  const righe = [{stile:"testa", celle: cols.map(j => clean(head[rel(j)]))}];
+  const C = T.col, f = n => ({f: L(C.giac) + n + "-" + L(C.conta) + n});
+  R.righe.forEach(x => {
+    const n = righe.length + 1;
+    let celle;
+    if(x.tipo === "tab"){
+      const src = T.aoa[x.riga - T.r0 - 1] || [];
+      celle = cols.map(j => {
+        if(j === C.conta) return x.nos;
+        if(j === C.diff) return {...f(n), v:x.diff};
+        const v = src[rel(j)];
+        return (v === null || v === undefined) ? null : (typeof v === "number" ? v : String(v));
+      });
+    } else {
+      celle = cols.map(j => j === C.art ? x.art : j === C.desc ? x.desc : j === C.um ? x.um
+        : j === C.qxc ? x.qxcNos : j === C.giac ? 0 : j === C.conta ? x.nos : j === C.diff ? {...f(n), v:x.diff} : null);
+    }
+    righe.push({stile: x.esito === "nostra" ? "rosso" : "dati", celle});
+  });
+  return nuovoXlsx([{nome: T.foglio || "Tabulato", larg: cols.map(j => j === C.desc ? 42 : 12), righe, filtro:true, blocca:true}]);
+}
+
+/* ---------- uscita 2 · BILANCIAMENTO CLICK - BOLLICINE ---------- */
+async function scaricaBilanciamento(){
+  const R = ST.ris;
+  const intest = ["Articolo", "Descrizione", "U.M.", "Conteggio", "Pezzi per collo Bollicine", "Pezzi per collo nostri",
+                  "Magazzino", "Giacenza Bollicine", "Nostra giacenza", "Differenza"];
+  const righe = [{stile:"testa", celle:intest}];
+  R.righe.forEach(x => {
+    const n = righe.length + 1;
+    righe.push({stile: x.esito === "nostra" ? "rosso" : "dati",
+                celle:[x.art, x.desc, x.um, x.un, x.qxcCli, x.qxcNos, nomeMag(x.mag), x.cli, x.nos,
+                       {f:"H" + n + "-I" + n, v:x.diff}]});
+  });
+  const imp = [
+    {stile:"grassetto", celle:["Confronto", MODI.bil.nome]},
+    {celle:["Generato il", oggi()]},
+    {celle:["Giacenza UdC", ST.giac.nome]},
+    {celle:["Giacenza Bollicine", ST.cli.nome]},
+    {celle:[]},
+    {stile:"testa", celle:["Magazzino", "Righe", "Pari", "Differenza", "Solo Bollicine", "Solo nostre"]}
+  ].concat(R.perMag.map(m => ({stile:"dati", celle:[m.nome, m.n, m.pari, m.diff, m.cliente, m.nostra]})),
+    [{celle:[]}, {stile:"testa", celle:["Stato contabile", "Magazzino", "UdC", "Colli", "Pezzi"]}],
+    [...ST.giac.stati.entries()].sort((a, b) => b[1].udc - a[1].udc).map(([s, v]) =>
+      ({stile:"dati", celle:[s, nomeMag(ST.statoMag.get(s)), v.udc, r3(v.colli), r3(v.pezzi)]})),
+    [{celle:[]}, {stile:"testa", celle:["U.M.", "Conteggio"]}],
+    [...umCliente().keys()].sort(nat).map(u => ({stile:"dati", celle:[u || "(vuota)", unitaDi(u) === "colli"
+      ? "colli (Quantità Stoccata)" : "pezzi (Pezzi Stoccati)"]})));
+  const blob = await nuovoXlsx([
+    {nome:"Bilanciamento", larg:[12, 44, 7, 10, 12, 12, 16, 12, 12, 11], righe, filtro:true, blocca:true},
+    {nome:"Impostazioni", larg:[26, 36, 10, 12, 14, 12], righe:imp}
+  ]);
+  scarica(blob, "bilanciamento_click_bollicine_" + oggiCompatto() + ".xlsx");
+}
+
+/* Excel nuovo scritto con JSZip: SheetJS gratuito non scrive colori, bordi e grassetti */
+async function nuovoXlsx(fogli){
+  const S = {dati:1, testa:2, rosso:3, grassetto:4};
+  const zip = new JSZip();
+  const cellaXml = (ref, v, s) => {
+    const sa = s ? ` s="${s}"` : "";
+    if(v === null || v === undefined || v === "" || (typeof v === "number" && !isFinite(v))) return s ? `<c r="${ref}"${sa}/>` : "";
+    if(typeof v === "number") return `<c r="${ref}"${sa}><v>${r3(v)}</v></c>`;
+    if(typeof v === "object") return `<c r="${ref}"${sa}><f>${escXml(v.f)}</f>`
+      + (isFinite(v.v) ? `<v>${r3(v.v)}</v>` : "") + `</c>`;
+    const t = pulisciXml(v), sp = /^\s|\s$/.test(t) ? ' xml:space="preserve"' : "";
+    return `<c r="${ref}"${sa} t="inlineStr"><is><t${sp}>${escXml(t)}</t></is></c>`;
+  };
+  const nomi = [];
+  fogli.forEach((f, i) => {
+    const nCol = Math.max(1, ...f.righe.map(r => r.celle.length));
+    let rows = "";
+    f.righe.forEach((r, k) => {
+      const s = S[r.stile] || 0;
+      const c = r.celle.map((v, j) => cellaXml(colLett(j) + (k + 1), v, s)).join("");
+      if(c) rows += `<row r="${k + 1}">${c}</row>`;
+    });
+    const fine = colLett(nCol - 1) + Math.max(1, f.righe.length);
+    const vista = f.blocca
+      ? `<sheetView workbookViewId="0"${i === 0 ? ' tabSelected="1"' : ""}><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>`
+        + `<selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView>`
+      : `<sheetView workbookViewId="0"${i === 0 ? ' tabSelected="1"' : ""}/>`;
+    const cols = (f.larg || []).map((w, j) => `<col min="${j + 1}" max="${j + 1}" width="${w}" customWidth="1"/>`).join("");
+    zip.file(`xl/worksheets/sheet${i + 1}.xml`, XML_DECL
+      + `<worksheet xmlns="${NS_MAIN}" xmlns:r="${NS_R}"><dimension ref="A1:${fine}"/>`
+      + `<sheetViews>${vista}</sheetViews><sheetFormatPr defaultRowHeight="15"/>`
+      + (cols ? `<cols>${cols}</cols>` : "") + `<sheetData>${rows}</sheetData>`
+      + (f.filtro ? `<autoFilter ref="A1:${fine}"/>` : "")
+      + `<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`);
+    nomi.push({nome: pulisciXml(f.nome).replace(/[\\\/?*\[\]:]/g, " ").slice(0, 31), filtro: f.filtro ? fine : null});
+  });
+  const ref = n => "'" + n.replace(/'/g, "''") + "'";
+  const assoluto = r => r.replace(/^([A-Z]+)(\d+)$/, "$$$1$$$2");            // "J1158" -> "$J$1158"
+  const dn = nomi.map((n, i) => n.filtro ? `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">`
+    + `${escXml(ref(n.nome))}!$A$1:${assoluto(n.filtro)}</definedName>` : "").join("");
+  zip.file("xl/workbook.xml", XML_DECL + `<workbook xmlns="${NS_MAIN}" xmlns:r="${NS_R}"><bookViews><workbookView/></bookViews><sheets>`
+    + nomi.map((n, i) => `<sheet name="${escXml(n.nome)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("") + `</sheets>`
+    + (dn ? `<definedNames>${dn}</definedNames>` : "") + `<calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`);
+  zip.file("xl/_rels/workbook.xml.rels", XML_DECL + `<Relationships xmlns="${NS_REL}">`
+    + nomi.map((n, i) => `<Relationship Id="rId${i + 1}" Type="${NS_R}/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("")
+    + `<Relationship Id="rId${nomi.length + 1}" Type="${NS_R}/styles" Target="styles.xml"/></Relationships>`);
+  zip.file("_rels/.rels", XML_DECL + `<Relationships xmlns="${NS_REL}"><Relationship Id="rId1" `
+    + `Type="${NS_R}/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+  zip.file("[Content_Types].xml", XML_DECL + `<Types xmlns="${NS_CT}">`
+    + `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>`
+    + `<Default Extension="xml" ContentType="application/xml"/>`
+    + `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>`
+    + nomi.map((n, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")
+    + `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`);
+  const bordo = `<left style="thin"><color indexed="64"/></left><right style="thin"><color indexed="64"/></right>`
+              + `<top style="thin"><color indexed="64"/></top><bottom style="thin"><color indexed="64"/></bottom><diagonal/>`;
+  zip.file("xl/styles.xml", XML_DECL + `<styleSheet xmlns="${NS_MAIN}">`
+    + `<fonts count="2"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font></fonts>`
+    + `<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>`
+    + `<fill><patternFill patternType="solid"><fgColor rgb="FFDCE6F1"/><bgColor indexed="64"/></patternFill></fill>`
+    + `<fill><patternFill patternType="solid"><fgColor rgb="${ROSSO}"/><bgColor indexed="64"/></patternFill></fill></fills>`
+    + `<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border>${bordo}</border></borders>`
+    + `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>`
+    + `<cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>`
+    + `<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>`
+    + `<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>`
+    + `<xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>`
+    + `<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>`
+    + `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`);
+  return zip.generateAsync({type:"blob", mimeType:MIME_XLSX, compression:"DEFLATE"});
+}
+
+function scarica(blob, nome){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = nome;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+/* ---------- eventi ---------- */
+document.querySelectorAll("button.modo").forEach(b => b.addEventListener("click", () => {
+  if(ST.modo === b.dataset.modo) return;
+  ST.modo = b.dataset.modo;
+  disegnaModo(); disegnaConfig(); ricalcola();
+}));
+$("drop").addEventListener("click", () => $("file").click());
+$("file").addEventListener("change", e => { if(e.target.files.length) caricaFile(e.target.files); e.target.value = ""; });
+["dragenter", "dragover"].forEach(ev =>
+  $("drop").addEventListener(ev, e => { e.preventDefault(); $("drop").classList.add("over"); }));
+["dragleave", "drop"].forEach(ev =>
+  $("drop").addEventListener(ev, e => { e.preventDefault(); $("drop").classList.remove("over"); }));
+$("drop").addEventListener("drop", e => { if(e.dataTransfer && e.dataTransfer.files.length) caricaFile(e.dataTransfer.files); });
+window.addEventListener("dragover", e => e.preventDefault());
+window.addEventListener("drop", e => e.preventDefault());
+$("reset").addEventListener("click", ricomincia);
+
+$("config").addEventListener("change", e => {
+  const t = e.target;
+  if(t.id === "magTab") ST.magTab = t.value;
+  else if(t.dataset.stato !== undefined) ST.statoMag.set(t.dataset.stato, t.value);
+  else if(t.dataset.um !== undefined) ST.umConta.set(t.dataset.um, t.value);
+  else return;
+  ricalcola();
+});
+$("tab").addEventListener("change", e => {
+  const t = e.target;
+  if(!t.classList.contains("umagg")) return;
+  if(t.value) ST.umAgg.set(t.dataset.key, t.value); else ST.umAgg.delete(t.dataset.key);
+  ricalcola();
+});
+document.querySelectorAll("button.chip").forEach(c => c.addEventListener("click", () => {
+  ST.filtro = c.dataset.f;
+  document.querySelectorAll("button.chip").forEach(o => o.classList.toggle("on", o === c));
+  if(ST.ris) disegnaTabella();
+}));
+$("magFiltro").addEventListener("change", e => { ST.magFiltro = e.target.value; if(ST.ris) disegnaTabella(); });
+$("cerca").addEventListener("input", () => { if(ST.ris) disegnaTabella(); });
+$("scarica").addEventListener("click", async () => {
+  if(!ST.ris) return;
+  if(typeof JSZip === "undefined"){ libreriaMancante(); return; }
+  const b = $("scarica"), t = b.textContent;
+  b.disabled = true; b.textContent = "Preparo il file…";
+  try{
+    if(ST.ris.modo === "inv") await scaricaInventario(); else await scaricaBilanciamento();
+  }catch(err){
+    msg("Non sono riuscito a preparare il file Excel: " + err.message, "err");
+  }finally{
+    b.disabled = false; b.textContent = t;
+  }
+});
+
+/* ---------- librerie non caricate ---------- */
+function libreriaMancante(){
+  if(typeof XLSX === "undefined")
+    msg("Non riesco a caricare la libreria di lettura Excel (SheetJS) da cdnjs.cloudflare.com. Se la rete la blocca, "
+      + "scarica xlsx.full.min.js, mettilo nella stessa cartella di questa pagina e cambia il src dello script "
+      + "in \"xlsx.full.min.js\".", "err");
+  if(typeof JSZip === "undefined")
+    msg("Non riesco a caricare JSZip da cdnjs.cloudflare.com: il confronto a video funziona, ma non posso "
+      + "preparare i file Excel da scaricare. Se la rete la blocca, scarica jszip.min.js nella stessa cartella "
+      + "di questa pagina e cambia il src dello script in \"jszip.min.js\".", "err");
+}
+disegnaModo();
+disegnaSlot();
+if(typeof XLSX === "undefined" || typeof JSZip === "undefined") libreriaMancante();
+if(typeof XLSX === "undefined"){
+  $("drop").style.pointerEvents = "none";
+  $("drop").style.opacity = ".5";
+}
+</script>
+</body>
+</html>

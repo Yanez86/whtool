@@ -11,7 +11,10 @@ nessun package manager: si modificano i file HTML e si caricano sul repository.
 | `giacenze.html` | Aggregatore giacenze (Excel → riepilogo per articolo) |
 | `rotture.html` | Report rotture / Lost & Found (due Excel a confronto) |
 | `inventario.html` | Lista di spunta con barcode + foglio di controllo corridoi (stampa A4) |
+| `verifica-inventario.html` | Confronto fisico/logico dell'export di inventario (Stock o Picking), scheda Riconta |
 | `bordero.html` | Spacchetta borderò: PDF scansionati → un PDF per viaggio, con OCR |
+| `etichette.html` | Etichette packing list: una etichetta A4 per Area + Versione (bancale) |
+| `confronto-cliente.html` | Confronto giacenza cliente: 1 · INVENTARIO (tabulato) e 2 · BILANCIAMENTO CLICK - BOLLICINE |
 | `CHANGELOG.md` | Storico delle versioni dei singoli tool |
 
 ## Regole di questo repository
@@ -53,6 +56,21 @@ Vengono da macro VBA e script Python già in uso: il comportamento deve restare 
   Non silenziare mai questo caso: un nome sbagliato si corregge, un pacchetto perso no.
 - **Aggregatore giacenze:** intestazione riconosciuta automaticamente (nei file reali è alla riga 4);
   `Articolo` è la prima colonna con quel nome esatto, non `Codice Articolo`.
+- **Confronto giacenza cliente:** due confronti con nome fisso, mostrato in alto e nei file scaricati:
+  **1 · INVENTARIO** (tabulato inventario del cliente) e **2 · BILANCIAMENTO CLICK - BOLLICINE** (giacenza Bollicine).
+  - Il "magazzino" del cliente è il nostro stato contabile: DISPONIBILE → `01` (01 - VENDIBILE), SHORT → `AS`,
+    tutto il resto → `NV`. Tabella modificabile a video, valori predefiniti a ogni apertura.
+  - U.M. del cliente → conteggio: CT, CF, CS, PZ, PC a **colli** (`Quantità Stoccata`); BT, FS, BO, PL a **pezzi**
+    (`Pezzi Stoccati`); U.M. sconosciuta → colli con avviso. Misurato sui file reali del 26/11/2026: BT a pezzi perché
+    il cliente conta le bottiglie (`s_qtaxc`/`qxc` = 1 contro 6 per collo da noi); PZ e PC a colli perché i
+    confezionati (es. P5776, 10 pezzi per collo) il cliente li conta a colli.
+  - Abbinamento su `Articolo` della giacenza contro `s_codart` / `kart`, ignorando maiuscole e spazi.
+    Differenza = cliente − nostra (come la `diff` del tabulato). Righe rosse: cliente 0, noi con merce.
+  - INVENTARIO: si restituisce **il file del cliente**, non uno nuovo. `conta click` = nostra quantità nel magazzino
+    del tabulato (default 01). In fondo, in rosso chiaro `FFFFC7CE`, solo gli articoli che abbiamo noi e lui no,
+    **con merce in quel magazzino**; giacenza cliente 0, `art_um` scelta a video riga per riga (vuota = colli).
+  - BILANCIAMENTO: confronto per articolo **e** magazzino sulla colonna `giac` (non `dispo`: sui file reali
+    coincidono 750 righe su 1.112 con `giac`, 578 con `dispo`). Solo le righe con merce da almeno una parte.
 
 ## Trappole già incontrate (non ripeterle)
 
@@ -67,6 +85,12 @@ Vengono da macro VBA e script Python già in uso: il comportamento deve restare 
 - **pdf-lib non supporta `horizontalScale` in `drawText`.** Per il testo invisibile si riduce la dimensione
   del font finché la parola rientra nella sua larghezza.
 - **localStorage e simili non servono**: nessuno stato va salvato tra una sessione e l'altra.
+- **SheetJS 0.18.5 (gratuito) non scrive stili**: riscrivendo un file perde bordi, colori e larghezze, e non sa
+  colorare le righe. Per restituire il file del cliente si modifica il suo XML con JSZip (celle, righe nuove,
+  stile clonato con riempimento rosso, `dimension`, `autoFilter`, nome `_xlnm._FilterDatabase`); si toglie
+  `calcChain.xml` e si mette `fullCalcOnLoad`. Gli Excel nuovi si scrivono a mano, sempre con JSZip.
+- **"Bad uncompressed size" in console** leggendo la Giacenza UdC: è SheetJS che segnala gli zip del WMS
+  (con data descriptor), il file viene letto bene. Non è un errore della pagina; nei test va tenuto separato.
 
 ## Come si verifica una modifica
 
@@ -81,6 +105,11 @@ con Playwright e Chromium headless su `file:///…`, intercettando i CDN così d
 - **Borderò:** i testi OCR reali delle pagine di prova si conservano in un JSON e si rigioca l'analisi
   sostituendo `renderHeader` e `ocrText`; il risultato atteso sul PDF di prova è 8 pacchetti,
   pagine borderò 1, 10, 14, 22, 29, 30, 35, 42, nessuna pagina non assegnata.
+- **Confronto giacenza cliente:** rifare in pandas i due confronti con le stesse regole e confrontare riga per riga.
+  Con i file di prova del 26/11/2026 (tabulato Settala, Giacenza UdC, Bollicine; non sono nel repository):
+  INVENTARIO 1.090 righe del tabulato + 119 aggiunte; BILANCIAMENTO 1.157 righe, magazzino 01 750 pari su 1.112,
+  AS 5 su 5, NV 20 su 40. Gli Excel scaricati vanno riaperti (openpyxl: valori, formule, colori, filtro) e
+  convertiti in PDF con LibreOffice per guardarli.
 - **Stampa:** generare il PDF con `page.pdf()` e guardarlo davvero, convertendolo in immagine.
 - In ogni test raccogliere `pageerror` e gli errori di console: devono essere zero.
 

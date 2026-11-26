@@ -43,7 +43,19 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
   modificabile (RITIRI COCA, ROTTURE 262, ROTTURE, BL5, BL3 precaricate). Una riga per articolo con quantità
   sommate; oltre 27 articoli le righe si abbassano per restare in una pagina. Stampa o PDF dal browser.
 
-## Home — 1.5 (07/10/2026)
+## Confronto giacenza cliente — 1.0 (26/11/2026)
+- 1.0 — versione iniziale, con due confronti fra la nostra Giacenza UdC e la giacenza del cliente.
+  **1 · INVENTARIO**: il tabulato inventario del cliente torna compilato nella colonna *conta click*, modificato
+  direttamente con JSZip così da restare identico (foglio, bordi, colonna colorata, filtro); in fondo, in rosso
+  chiaro, gli articoli che abbiamo solo noi nel magazzino del tabulato, con U.M. scelta a video.
+  **2 · BILANCIAMENTO CLICK - BOLLICINE**: la giacenza Bollicine (.xls) confrontata per articolo e magazzino
+  (01 - VENDIBILE, AS, NV), con export nuovo e foglio delle impostazioni usate.
+  Tabelle modificabili stato contabile → magazzino (DISPONIBILE → 01, SHORT → AS, il resto → NV) e
+  U.M. → colli o pezzi (CT, CF, CS, PZ, PC a colli; BT, FS, BO, PL a pezzi).
+
+## Home — 1.6 (26/11/2026)
+- 1.6 — scheda e voce di menu per Confronto giacenza cliente; schede aggiornate per Aggregatore giacenze 1.2
+  e Verifica inventario 1.1.
 - 1.5 — scheda e voce di menu per Etichette packing list.
 - 1.4 — scheda e voce di menu per Verifica inventario.
 

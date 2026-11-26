@@ -1,15 +1,17 @@
 # Tool Magazzino
 
-Cinque strumenti web per elaborare gli estratti Excel del magazzino. Sono pagine HTML autonome: l'elaborazione avviene interamente nel browser, nessun file viene inviato a un server.
+Sette strumenti web per elaborare gli estratti e i documenti del magazzino. Sono pagine HTML autonome: l'elaborazione avviene interamente nel browser, nessun file viene inviato a un server.
 
 | File | Cosa fa |
 |---|---|
-| `index.html` | Home con i cinque strumenti |
+| `index.html` | Home con i sette strumenti |
 | `giacenze.html` | **Aggregatore giacenze** — un file di giacenza UdC diventa un riepilogo per articolo |
 | `rotture.html` | **Report rotture / Lost & Found** — confronto tra due file, con delta e totali |
 | `inventario.html` | **Inventario** — lista di spunta con barcode + foglio di controllo corridoi |
 | `verifica-inventario.html` | **Verifica inventario** — confronto fisico/logico dell'export di inventario (Stock o Picking), con scheda Riconta stampabile |
 | `bordero.html` | **Spacchetta borderò** — divide i PDF scansionati in un file per viaggio, con OCR |
+| `etichette.html` | **Etichette packing list** — dalla giacenza UdC una etichetta A4 per ogni bancale |
+| `confronto-cliente.html` | **Confronto giacenza cliente** — la nostra giacenza contro il tabulato inventario o la giacenza Bollicine del cliente |
 
 Ogni tool porta la propria versione e la data di aggiornamento nel piè di pagina; lo storico è in `CHANGELOG.md`.
 
@@ -70,18 +72,39 @@ Porting nel browser di `split_bordero.py`: pdf.js rende le pagine, Tesseract.js 
 
 Differenze rispetto allo script Python: niente `ocrmypdf` (il livello testo usa sempre il metodo overlay) e niente deskew/rotazione automatica delle pagine. Il primo avvio scarica i dati lingua di Tesseract (circa 15 MB) da un CDN esterno: se la rete aziendale blocca i CDN il pannello di diagnostica lo segnala subito.
 
+## Etichette packing list
+
+- Si trascina l'estratto **Giacenza UdC**: esce una etichetta A4 (layout di `MODELLO.xlsx`) per ogni coppia **Area + Versione**, dove la versione è il numero bancale.
+- Motivazione e codice dipendono dall'area, da una tabella modificabile a video (RITIRI COCA, ROTTURE 262, ROTTURE, BL5, BL3 precaricate); le aree senza motivazione vengono segnalate, con un pulsante per aggiungerle.
+- Una riga per articolo con le quantità sommate; oltre 27 articoli le righe si abbassano per restare in una sola pagina.
+- Data, codice plant e numero verbale compilabili prima di stampare; stampa o PDF dal browser, senza URL e data a piè di pagina.
+
+## Confronto giacenza cliente
+
+Si caricano la nostra **Giacenza UdC** e un file del cliente; il tool riconosce da solo quale dei due confronti fare, e lo dichiara in alto e nei file scaricati.
+
+- **1 · INVENTARIO** — con il *tabulato inventario* del cliente (`s_codart`, `art_um`, `s_qtaxc`, `giacenza`, `conta click`, `diff`). Si scarica **il suo stesso file** con la colonna *conta click* compilata: viene modificato direttamente, quindi foglio, bordi, colonna colorata, filtro e formule `diff` restano come li ha mandati. In fondo si aggiungono, in rosso chiaro, gli articoli che abbiamo solo noi nel magazzino a cui si riferisce il tabulato (default 01 - VENDIBILE), con giacenza cliente 0; per ciascuno si sceglie a video l'U.M., che decide colli o pezzi e finisce in `art_um` (senza scelta: colli).
+- **2 · BILANCIAMENTO CLICK - BOLLICINE** — con la *giacenza Bollicine* (anche `.xls`, una riga per articolo e magazzino `kmag`). Il confronto è per articolo e magazzino del cliente (01 - VENDIBILE, AS, NV) sulla colonna `giac`; si scarica un Excel nuovo con differenza, filtro automatico, righe rosse dove Bollicine ha 0 e noi abbiamo merce, e un secondo foglio con le impostazioni usate.
+
+Regole, modificabili a video (si riparte dai valori predefiniti a ogni apertura):
+
+- **Stato contabile → magazzino del cliente:** DISPONIBILE → 01 - VENDIBILE, SHORT → AS, tutti gli altri → NV.
+- **U.M. del cliente → conteggio:** CT, CF, CS, PZ, PC a **colli** (*Quantità Stoccata*); BT, FS, BO, PL a **pezzi** (*Pezzi Stoccati*). Le U.M. sconosciute vanno a colli, con un avviso.
+- Abbinamento sul campo `Articolo` della giacenza (non `Codice Articolo`), ignorando maiuscole e spazi. Differenza = cliente − nostra.
+- Avvisi quando i pezzi per collo del cliente non coincidono con i nostri per un articolo contato a colli: di solito vuol dire U.M. da cambiare.
+
 ## Pubblicazione su GitHub Pages
 
 1. Su GitHub crea un repository nuovo, ad esempio `tool-magazzino`.
-2. Carica i sei file HTML nella root (i `.md` sono facoltativi): **Add file → Upload files → Commit changes**.
+2. Carica gli otto file HTML nella root (i `.md` sono facoltativi): **Add file → Upload files → Commit changes**.
 3. **Settings → Pages** → *Source*: **Deploy from a branch**, branch **main**, cartella **/ (root)** → **Save**.
-4. Dopo circa un minuto è online su `https://<tuo-utente>.github.io/tool-magazzino/` — la home si apre da sola, i cinque tool sono raggiungibili dalla barra in alto.
+4. Dopo circa un minuto è online su `https://<tuo-utente>.github.io/tool-magazzino/` — la home si apre da sola, i sette tool sono raggiungibili dalla barra in alto.
 
 Da riga di comando:
 
 ```bash
 git init
-git add index.html giacenze.html rotture.html inventario.html verifica-inventario.html bordero.html README.md
+git add index.html giacenze.html rotture.html inventario.html verifica-inventario.html bordero.html etichette.html confronto-cliente.html README.md
 git commit -m "Tool magazzino"
 git branch -M main
 git remote add origin https://github.com/<tuo-utente>/tool-magazzino.git
@@ -93,5 +116,5 @@ Per aggiornare un tool basta sostituire il file corrispondente: Pages si ridispi
 ## Note tecniche
 
 - Ogni pagina è autonoma (CSS incluso), quindi funziona anche aprendola con doppio clic dal PC o inviandola singolarmente a un collega. I link della barra in alto funzionano solo se i file stanno nella stessa cartella.
-- Le librerie (SheetJS per Excel, pdf.js / pdf-lib / JSZip / Tesseract.js per i PDF) arrivano da cdnjs e jsDelivr: al primo caricamento serve internet.
+- Le librerie (SheetJS per Excel, pdf.js / pdf-lib / JSZip / Tesseract.js per i PDF, JSZip anche per scrivere gli Excel del confronto cliente) arrivano da cdnjs e jsDelivr: al primo caricamento serve internet.
 - Tema chiaro e scuro automatici, in base alle impostazioni del sistema.
