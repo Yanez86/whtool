@@ -43,7 +43,10 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
   modificabile (RITIRI COCA, ROTTURE 262, ROTTURE, BL5, BL3 precaricate). Una riga per articolo con quantità
   sommate; oltre 27 articoli le righe si abbassano per restare in una pagina. Stampa o PDF dal browser.
 
-## Confronto giacenza cliente — 1.0 (26/11/2026)
+## Confronto giacenza cliente — 1.1 (26/11/2026)
+- 1.1 — nel bilanciamento la nostra quantità si chiama **Giacenza Click** (prima "Nostra giacenza"), e così
+  "Pezzi per collo Click" e "Solo Click"; accanto resta **Giacenza Bollicine**. Nell'Excel scaricato le
+  intestazioni vanno a capo: prima "Giacenza Bollicine" restava tagliata a "Giacenza" dalla colonna stretta.
 - 1.0 — versione iniziale, con due confronti fra la nostra Giacenza UdC e la giacenza del cliente.
   **1 · INVENTARIO**: il tabulato inventario del cliente torna compilato nella colonna *conta click*, modificato
   direttamente con JSZip così da restare identico (foglio, bordi, colonna colorata, filtro); in fondo, in rosso
