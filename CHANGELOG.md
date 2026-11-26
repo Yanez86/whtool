@@ -2,7 +2,9 @@
 
 Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e nella scheda della home.
 
-## Aggregatore giacenze — 1.1 (08/09/2026)
+## Aggregatore giacenze — 1.2 (26/11/2026)
+- 1.2 — il separatore interno della chiave di aggregazione era un carattere di controllo (U+0001): ora è `|`.
+  Messaggio esplicito se la libreria Excel non si carica dal CDN, invece di un errore muto al trascinamento.
 - 1.1 — grafica unificata con gli altri tool e barra di navigazione comune.
 - 1.0 — versione iniziale: aggregazione per articolo, descrizione, stato contabile e data scadenza,
   campi aggiuntivi a scelta, export XLSX e CSV.
@@ -15,7 +17,9 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
 - 1.0 — sostituisce le macro `GeneraInventario` e `GeneraFoglioControllo`: lista di spunta stampabile con
   barcode Code 39 disegnati, foglio di controllo corridoi, filtri Picking e Piano modificabili.
 
-## Verifica inventario — 1.0 (06/10/2026)
+## Verifica inventario — 1.1 (26/11/2026)
+- 1.1 — il badge *Pari* e i messaggi informativi non avevano lo sfondo colorato: usavano due colori
+  (`--ok-bg`, `--warn-bg`) mai definiti. Ora sono alias dei colori comuni.
 - 1.0 — versione iniziale: confronto fisico/logico dell'export di inventario, con scelta Stock o Picking.
   Controlla ubicazione, SSCC (solo Stock), articolo e quantità in colli; pezzi (solo Picking) e lotti sono
   opzionali e spenti di default. Riepilogo pari/difettose/non contate, delta (eccedenze e ammanchi) per ubicazione

@@ -25,7 +25,8 @@
     }
   }
   /* alias dei colori usati dai componenti di questa pagina */
-  :root{ --card:var(--panel); --ko:var(--err); --ko-bg:var(--err-soft); --nc:var(--muted); --nc-bg:var(--head); --accent-ink:#ffffff; }
+  :root{ --card:var(--panel); --ko:var(--err); --ko-bg:var(--err-soft); --ok-bg:var(--ok-soft); --warn-bg:var(--warn-soft);
+         --nc:var(--muted); --nc-bg:var(--head); --accent-ink:#ffffff; }
   @media (prefers-color-scheme: dark){ :root{ --accent-ink:#0b1118; } }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
@@ -230,9 +231,9 @@
 </div>
 
 <footer class="ver noprint">
-  <span><strong>Verifica inventario</strong> <span class="sep">·</span> versione 1.0</span>
+  <span><strong>Verifica inventario</strong> <span class="sep">·</span> versione 1.1</span>
   <span class="sep">·</span>
-  <span>aggiornato il 06/10/2026</span>
+  <span>aggiornato il 26/11/2026</span>
 </footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
