@@ -43,7 +43,12 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
   modificabile (RITIRI COCA, ROTTURE 262, ROTTURE, BL5, BL3 precaricate). Una riga per articolo con quantità
   sommate; oltre 27 articoli le righe si abbassano per restare in una pagina. Stampa o PDF dal browser.
 
-## Confronto giacenza cliente — 1.1 (26/11/2026)
+## Confronto giacenza cliente — 1.2 (26/11/2026)
+- 1.2 — gli avvisi che riguardano articoli li elencano **tutti**, uno per riga (prima erano tra parentesi in fondo
+  al messaggio e si fermavano a dieci). Per i pezzi per collo diversi ogni riga dice codice, descrizione, U.M. e i
+  due valori a confronto; il pulsante *Mostra in tabella* e il filtro *Pezzi per collo diversi* mostrano solo quegli
+  articoli, con i due valori evidenziati. Stesso elenco per gli articoli doppi nel tabulato (con i numeri di riga)
+  e per quelli assenti dall'anagrafica Bollicine (con il magazzino).
 - 1.1 — nel bilanciamento la nostra quantità si chiama **Giacenza Click** (prima "Nostra giacenza"), e così
   "Pezzi per collo Click" e "Solo Click"; accanto resta **Giacenza Bollicine**. Nell'Excel scaricato le
   intestazioni vanno a capo: prima "Giacenza Bollicine" restava tagliata a "Giacenza" dalla colonna stretta.

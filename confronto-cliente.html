@@ -170,6 +170,11 @@
   .tag.diff{background:var(--warn-soft);color:var(--warn)}
   .tag.cliente{background:var(--head);color:var(--muted);border:1px solid var(--line)}
   .tag.nostra{background:var(--err-soft);color:var(--err)}
+  .msg ul.codici{margin:8px 0 0;padding-left:20px;max-height:220px;overflow:auto}
+  .msg ul.codici li{margin:2px 0}
+  .msg .azioni{margin-top:8px}
+  .msg .azioni button{font-size:12px;padding:4px 10px}
+  td.qk{background:var(--warn-soft);color:var(--warn);font-weight:700}
   table.mini{font-size:13px;margin-top:4px;width:auto;min-width:560px}
   table.mini th{position:static}
   table.mini tbody tr:nth-child(even){background:transparent}
@@ -289,6 +294,7 @@
       <button type="button" class="chip" data-f="diff">Con differenza</button>
       <button type="button" class="chip" data-f="cliente" id="chipCli">Solo cliente</button>
       <button type="button" class="chip" data-f="nostra" id="chipNos">Solo nostre</button>
+      <button type="button" class="chip hidden" data-f="qxc" id="chipQxc">Pezzi per collo diversi</button>
       <select id="magFiltro" class="hidden"></select>
       <input type="search" class="cerca" id="cerca" placeholder="Cerca articolo o descrizione…">
       <span class="spacer"></span>
@@ -300,7 +306,7 @@
 </div>
 
 <footer class="ver noprint">
-  <span><strong>Confronto giacenza cliente</strong> <span class="sep">·</span> versione 1.1</span>
+  <span><strong>Confronto giacenza cliente</strong> <span class="sep">·</span> versione 1.2</span>
   <span class="sep">·</span>
   <span>aggiornato il 26/11/2026</span>
 </footer>
@@ -633,7 +639,15 @@ function esito(cli, nos){
   if(nos === 0) return "cliente";
   return "diff";
 }
-const elenco = (arr, n) => arr.slice(0, n || 10).join(", ") + (arr.length > (n || 10) ? "…" : "");
+/* voce dell'elenco per un articolo con i pezzi per collo diversi: [codice, dettaglio] */
+const vocePz = (x, dove) => [x.art, `${x.desc || "senza descrizione"} · U.M. ${x.um || "(vuota)"} · pezzi per collo: `
+  + `${fmtQ(x.qxcCli)} ${dove[0]}, ${fmtQ(x.qxcNos)} ${dove[1]}`];
+/* una voce per articolo, anche se compare in più righe */
+function perArticolo(righe){
+  const m = new Map();
+  righe.forEach(x => { if(!m.has(x.key)) m.set(x.key, x); });
+  return [...m.values()].sort((a, b) => nat(a.art, b.art));
+}
 
 /* umUsate: U.M. degli articoli che entrano davvero nel confronto */
 function avvisiComuni(avv, umUsate){
@@ -650,16 +664,16 @@ function avvisiComuni(avv, umUsate){
 
 function calcInv(our){
   const T = ST.cli, mag = ST.magTab, avv = [];
-  const visti = new Set(), dupl = [], qxcKo = [], righe = [];
+  const visti = new Set(), dupl = new Map(), righe = [];
   T.recs.forEach(r => {
     const o = our.get(r.key), un = unitaDi(r.um);
     const dup = visti.has(r.key);
-    if(dup) dupl.push(r.art);
+    if(dup){ const d = dupl.get(r.key) || {art:r.art, desc:r.desc, righe:[righe.find(x => x.key === r.key).riga]}; d.righe.push(r.riga); dupl.set(r.key, d); }
     visti.add(r.key);
     const nos = dup ? 0 : quanti(o, mag, un);
-    if(un === "colli" && o && r.qxc !== null && o.nPz !== null && r.qxc !== o.nPz) qxcKo.push(r.art);
+    const qxcKo = un === "colli" && !!o && r.qxc !== null && o.nPz !== null && r.qxc !== o.nPz;
     righe.push({tipo:"tab", riga:r.riga, art:r.art, key:r.key, desc: r.desc || (o ? o.desc : ""), um:r.um, un,
-                qxcCli:r.qxc, qxcNos: o ? o.nPz : null, cli:r.giac, nos, diff:r3(r.giac - nos),
+                qxcCli:r.qxc, qxcNos: o ? o.nPz : null, qxcKo, cli:r.giac, nos, diff:r3(r.giac - nos),
                 per: ST.mags.map(m => quanti(o, m.cod, un)), presente: !!o, esito: esito(r.giac, nos)});
   });
   /* articoli che ha solo la nostra giacenza, con merce nel magazzino del tabulato */
@@ -678,12 +692,16 @@ function calcInv(our){
   agg.sort((a, b) => nat(a.art, b.art));
 
   avvisiComuni(avv, righe.concat(agg).map(x => x.um));
-  if(dupl.length)
-    avv.push(["warn", `${dupl.length} ${pl(dupl.length, "articolo compare", "articoli compaiono")} più volte nel tabulato (${elenco(dupl)}): conta click `
-      + "è scritto solo sulla prima riga, sulle altre resta 0."]);
-  if(qxcKo.length)
-    avv.push(["warn", `Per ${qxcKo.length} ${pl(qxcKo.length, "articolo contato", "articoli contati")} a colli i pezzi per collo del tabulato (s_qtaxc) non `
-      + `coincidono con i nostri: controlla l'unità di misura (${elenco(qxcKo)}).`]);
+  if(dupl.size)
+    avv.push(["warn", `${dupl.size} ${pl(dupl.size, "articolo compare", "articoli compaiono")} più volte nel tabulato: conta click `
+      + "è scritto solo sulla prima riga, sulle altre resta 0.",
+      [...dupl.values()].sort((a, b) => nat(a.art, b.art)).map(d => [d.art, `${d.desc || "senza descrizione"} · righe ${d.righe.join(", ")}`])]);
+  const pzKo = perArticolo(righe.filter(x => x.qxcKo));
+  if(pzKo.length)
+    avv.push(["warn", `Pezzi per collo diversi fra il tabulato (s_qtaxc) e la nostra giacenza per ${pzKo.length} `
+      + `${pl(pzKo.length, "articolo contato", "articoli contati")} a colli: controlla l'unità di misura `
+      + `${pl(pzKo.length, "di questo articolo", "di questi articoli")}.`,
+      pzKo.map(x => vocePz(x, ["nel tabulato", "nella nostra giacenza"])), "qxc"]);
   if(T.nonNum)
     avv.push(["warn", `${fmtInt(T.nonNum)} righe del tabulato hanno una giacenza non numerica: contate come 0.`]);
   if(!T.zip)
@@ -698,7 +716,7 @@ function calcInv(our){
 }
 
 function calcBil(our){
-  const B = ST.cli, avv = [], righe = [], qxcKo = new Set(), fuori = new Set();
+  const B = ST.cli, avv = [], righe = [];
   const chiavi = new Map();
   B.map.forEach((e, k) => { if(r3(e.giac) !== 0) chiavi.set(k, {key:e.key, mag:e.mag}); });
   our.forEach((o, key) => o.mag.forEach((q, mag) => {
@@ -711,10 +729,9 @@ function calcBil(our){
     const cli = r3((B.map.get(k) || {giac:0}).giac);
     const nos = quanti(o, c.mag, un);
     if(cli === 0 && nos === 0) return;
-    if(!info) fuori.add(o.art);
-    if(un === "colli" && info && o && info.qxc !== null && o.nPz !== null && info.qxc !== o.nPz) qxcKo.add(info.art);
+    const qxcKo = un === "colli" && !!info && !!o && info.qxc !== null && o.nPz !== null && info.qxc !== o.nPz;
     righe.push({tipo:"bil", art: info ? info.art : o.art, key:c.key, desc: (info && info.desc) || (o ? o.desc : ""),
-                um, un, qxcCli: info ? info.qxc : null, qxcNos: o ? o.nPz : null, mag:c.mag,
+                um, un, qxcCli: info ? info.qxc : null, qxcNos: o ? o.nPz : null, qxcKo, anag: !!info, mag:c.mag,
                 cli, nos, diff:r3(cli - nos), esito: esito(cli, nos)});
   });
   const ord = new Map(ST.mags.map((m, i) => [m.cod, i]));
@@ -729,12 +746,17 @@ function calcBil(our){
   }).filter(x => x.n > 0 || MAG_DEFAULT.some(m => m.cod === x.cod));
 
   avvisiComuni(avv, righe.map(x => x.um));
-  if(fuori.size)
-    avv.push(["warn", `${fuori.size} ${pl(fuori.size, "articolo della nostra giacenza non è", "articoli della nostra giacenza non sono")} nell'anagrafica Bollicine `
-      + `(${elenco([...fuori])}): ${pl(fuori.size, "lo", "li")} conto a colli.`]);
-  if(qxcKo.size)
-    avv.push(["warn", `Per ${qxcKo.size} ${pl(qxcKo.size, "articolo contato", "articoli contati")} a colli i pezzi per collo di Bollicine (qxc) non `
-      + `coincidono con i nostri: controlla l'unità di misura (${elenco([...qxcKo])}).`]);
+  const fuori = perArticolo(righe.filter(x => !x.anag));
+  if(fuori.length)
+    avv.push(["warn", `${fuori.length} ${pl(fuori.length, "articolo della nostra giacenza non è", "articoli della nostra giacenza non sono")} `
+      + `nell'anagrafica Bollicine: ${pl(fuori.length, "lo", "li")} conto a colli.`,
+      fuori.map(x => [x.art, `${x.desc || "senza descrizione"} · magazzino ${righe.filter(y => y.key === x.key).map(y => nomeMag(y.mag)).join(", ")}`])]);
+  const pzKo = perArticolo(righe.filter(x => x.qxcKo));
+  if(pzKo.length)
+    avv.push(["warn", `Pezzi per collo diversi fra Bollicine (qxc) e Click per ${pzKo.length} `
+      + `${pl(pzKo.length, "articolo contato", "articoli contati")} a colli: controlla l'unità di misura `
+      + `${pl(pzKo.length, "di questo articolo", "di questi articoli")}.`,
+      pzKo.map(x => vocePz(x, ["in Bollicine", "in Click"])), "qxc"]);
   if(B.filiali.size > 1)
     avv.push(["warn", `Il file Bollicine contiene più filiali (${[...B.filiali].join(", ")}): le giacenze dello `
       + "stesso articolo e magazzino vengono sommate."]);
@@ -820,15 +842,44 @@ function ricalcola(){
   }
   const our = aggrega();
   ST.ris = ST.modo === "inv" ? calcInv(our) : calcBil(our);
-  ST.ris.avv.forEach(a => avviso(a[0], a[1]));
+  ST.ris.avv.forEach(a => avviso(...a));
   disegnaRisultati();
 }
 
-function avviso(kind, text){
+/* voci: [[codice, dettaglio], …] elencati tutti; filtro: pulsante che mostra in tabella le righe interessate */
+function avviso(kind, text, voci, filtro){
   const d = document.createElement("div");
   d.className = "msg " + kind;
-  d.textContent = text;
+  const t = document.createElement("div");
+  t.textContent = text;
+  d.appendChild(t);
+  if(voci && voci.length){
+    const ul = document.createElement("ul");
+    ul.className = "codici";
+    voci.forEach(([cod, det]) => {
+      const li = document.createElement("li"), b = document.createElement("strong");
+      b.textContent = cod;
+      li.appendChild(b);
+      li.appendChild(document.createTextNode(" — " + det));
+      ul.appendChild(li);
+    });
+    d.appendChild(ul);
+  }
+  if(filtro){
+    const w = document.createElement("div"), b = document.createElement("button");
+    w.className = "azioni";
+    b.type = "button";
+    b.textContent = "Mostra in tabella";
+    b.addEventListener("click", () => { impostaFiltro(filtro); $("tabwrap").scrollIntoView({behavior:"smooth", block:"center"}); });
+    w.appendChild(b);
+    d.appendChild(w);
+  }
   $("warns").appendChild(d);
+}
+function impostaFiltro(f){
+  ST.filtro = f;
+  document.querySelectorAll("button.chip").forEach(o => o.classList.toggle("on", o.dataset.f === f));
+  if(ST.ris) disegnaTabella();
 }
 
 function disegnaRisultati(){
@@ -860,6 +911,12 @@ function disegnaRisultati(){
   }
   $("chipCli").textContent = inv ? "Solo cliente" : "Solo Bollicine";
   $("chipNos").textContent = inv ? "Solo nostre" : "Solo Click";
+  const nQxc = R.righe.filter(x => x.qxcKo).length;
+  $("chipQxc").classList.toggle("hidden", !nQxc);
+  if(!nQxc && ST.filtro === "qxc"){
+    ST.filtro = "tutte";
+    document.querySelectorAll("button.chip").forEach(o => o.classList.toggle("on", o.dataset.f === "tutte"));
+  }
   $("magFiltro").classList.toggle("hidden", inv);
   if(!inv){
     const v = ST.magFiltro;
@@ -877,6 +934,7 @@ function righeFiltrate(){
     if(f === "diff" && x.esito === "pari") return false;
     if(f === "cliente" && x.esito !== "cliente") return false;
     if(f === "nostra" && x.esito !== "nostra") return false;
+    if(f === "qxc" && !x.qxcKo) return false;
     if(R.modo === "bil" && ST.magFiltro && x.mag !== ST.magFiltro) return false;
     return !q || norm(x.art + " " + x.desc).indexOf(q) > -1;
   });
@@ -908,6 +966,7 @@ function disegnaTabella(){
   lista.slice(0, MAX_RIGHE).forEach(x => {
     const cls = x.esito === "nostra" ? ' class="rosso"' : "";
     const dz = x.diff ? "num dz" : "num";
+    const qk = x.qxcKo ? "num qk" : "num";
     let um = esc(x.um);
     if(x.tipo === "agg"){
       um = `<select class="umagg" data-key="${esc(x.key)}"><option value="">—</option>`
@@ -915,13 +974,13 @@ function disegnaTabella(){
     }
     if(inv){
       h += `<tr${cls}><td>${x.riga === null ? "nuova" : x.riga}</td><td>${esc(x.art)}</td><td class="desc">${esc(x.desc)}</td>`
-         + `<td>${um}</td><td>${x.un}</td><td class="num">${fmtQ(x.qxcCli)}</td><td class="num">${fmtQ(x.qxcNos)}</td>`
+         + `<td>${um}</td><td>${x.un}</td><td class="${qk}">${fmtQ(x.qxcCli)}</td><td class="${qk}">${fmtQ(x.qxcNos)}</td>`
          + `<td class="num">${fmtQ(x.cli)}</td><td class="num"><strong>${fmtQ(x.nos)}</strong></td>`
          + `<td class="${dz}">${fmtSegno(x.diff)}</td><td>${etichetta(x)}</td>`
          + x.per.map(v => `<td class="num">${v ? fmtQ(v) : ""}</td>`).join("") + `</tr>`;
     } else {
       h += `<tr${cls}><td>${esc(x.art)}</td><td class="desc">${esc(x.desc)}</td><td>${um || "—"}</td><td>${x.un}</td>`
-         + `<td class="num">${fmtQ(x.qxcCli)}</td><td class="num">${fmtQ(x.qxcNos)}</td><td>${esc(nomeMag(x.mag))}</td>`
+         + `<td class="${qk}">${fmtQ(x.qxcCli)}</td><td class="${qk}">${fmtQ(x.qxcNos)}</td><td>${esc(nomeMag(x.mag))}</td>`
          + `<td class="num">${fmtQ(x.cli)}</td><td class="num">${fmtQ(x.nos)}</td><td class="${dz}">${fmtSegno(x.diff)}</td>`
          + `<td>${etichetta(x)}</td></tr>`;
     }
@@ -1385,11 +1444,7 @@ $("tab").addEventListener("change", e => {
   if(t.value) ST.umAgg.set(t.dataset.key, t.value); else ST.umAgg.delete(t.dataset.key);
   ricalcola();
 });
-document.querySelectorAll("button.chip").forEach(c => c.addEventListener("click", () => {
-  ST.filtro = c.dataset.f;
-  document.querySelectorAll("button.chip").forEach(o => o.classList.toggle("on", o === c));
-  if(ST.ris) disegnaTabella();
-}));
+document.querySelectorAll("button.chip").forEach(c => c.addEventListener("click", () => impostaFiltro(c.dataset.f)));
 $("magFiltro").addEventListener("change", e => { ST.magFiltro = e.target.value; if(ST.ris) disegnaTabella(); });
 $("cerca").addEventListener("input", () => { if(ST.ris) disegnaTabella(); });
 $("scarica").addEventListener("click", async () => {
