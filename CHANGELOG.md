@@ -56,7 +56,9 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
   Tabelle modificabili stato contabile → magazzino (DISPONIBILE → 01, SHORT → AS, il resto → NV) e
   U.M. → colli o pezzi (CT, CF, CS, PZ, PC a colli; BT, FS, BO, PL a pezzi).
 
-## Home — 1.6 (26/11/2026)
+## Home — 1.7 (26/11/2026)
+- 1.7 — la scheda di Spacchetta borderò passa nella sezione **Obsoleti**, in fondo alla home, chiusa all'apertura
+  (si apre con un clic). La voce "Borderò" resta nella barra in alto.
 - 1.6 — scheda e voce di menu per Confronto giacenza cliente; schede aggiornate per Aggregatore giacenze 1.2
   e Verifica inventario 1.1.
 - 1.5 — scheda e voce di menu per Etichette packing list.

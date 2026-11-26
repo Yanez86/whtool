@@ -7,7 +7,7 @@ nessun package manager: si modificano i file HTML e si caricano sul repository.
 
 | File | Contenuto |
 |---|---|
-| `index.html` | Home con le schede dei tool |
+| `index.html` | Home con le schede dei tool; quelli obsoleti (oggi solo il Borderò) in `<details class="obsoleti">`, chiuso |
 | `giacenze.html` | Aggregatore giacenze (Excel → riepilogo per articolo) |
 | `rotture.html` | Report rotture / Lost & Found (due Excel a confronto) |
 | `inventario.html` | Lista di spunta con barcode + foglio di controllo corridoi (stampa A4) |

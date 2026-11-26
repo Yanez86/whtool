@@ -4,7 +4,7 @@ Sette strumenti web per elaborare gli estratti e i documenti del magazzino. Sono
 
 | File | Cosa fa |
 |---|---|
-| `index.html` | Home con i sette strumenti |
+| `index.html` | Home con i sette strumenti; Spacchetta borderò sta nella sezione *Obsoleti*, chiusa in fondo |
 | `giacenze.html` | **Aggregatore giacenze** — un file di giacenza UdC diventa un riepilogo per articolo |
 | `rotture.html` | **Report rotture / Lost & Found** — confronto tra due file, con delta e totali |
 | `inventario.html` | **Inventario** — lista di spunta con barcode + foglio di controllo corridoi |
