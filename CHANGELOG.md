@@ -13,7 +13,12 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
 - 1.1 — grafica unificata, barra di navigazione, tema scuro.
 - 1.0 — versione iniziale (sviluppata a parte): confronto rotture / found con delta, totali ed export Excel.
 
-## Inventario — 1.5 (27/11/2026)
+## Inventario — 1.6 (27/11/2026)
+- 1.6 — nella lista inventario entrano anche le aree **senza scaffale** (COSTOSI, BOMBOLE, NON VENDIBILE…) e quelle
+  con scaffale ma senza campata e piano (C04, P01, RIS): se l'area è spuntata, le sue righe escono in fondo, dopo gli
+  scaffali, in un blocco *Area X* a pagina nuova, con barcode, ordinate per ubicazione e articolo. Per loro vale solo il
+  filtro Picking (il piano non ce l'hanno). Prima restavano sempre fuori, anche spuntate. La parte a scaffale non cambia;
+  senza colonna Area nel file la lista resta quella della macro.
 - 1.5 — nei filtri della lista inventario si scelgono anche le **aree**: all'apertura sono spuntate solo quelle R
   seguite da un numero (R01, R02, R03, R04…), cioè le scaffalature. Ogni area mostra quante righe porterebbe nella lista
   con i filtri Picking e Piano attuali; un clic aggiorna subito la lista. Con tutte le aree spuntate la lista è quella
@@ -85,7 +90,8 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
   Tabelle modificabili stato contabile → magazzino (DISPONIBILE → 01, SHORT → AS, il resto → NV) e
   U.M. → colli o pezzi (CT, CF, CS, PZ, PC a colli; BT, FS, BO, PL a pezzi).
 
-## Home — 1.12 (27/11/2026)
+## Home — 1.13 (27/11/2026)
+- 1.13 — scheda aggiornata per Inventario 1.6.
 - 1.12 — scheda aggiornata per Inventario 1.5.
 - 1.11 — scheda aggiornata per Inventario 1.4.
 - 1.10 — scheda aggiornata per Inventario 1.3.

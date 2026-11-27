@@ -333,7 +333,7 @@
       <button id="listaDefault">Ripristina</button>
       <span class="meta" id="listaInfo"></span>
     </div>
-    <div class="hint">All'apertura sono spuntate solo le aree R seguite da un numero (R01, R02, R03, R04…), cioè le scaffalature; un clic aggiorna subito la lista. Il foglio di controllo usa tutte le righe del file, divise per area e poi fra picking e stoccaggio: i filtri qui sopra valgono solo per la lista. Le aree del foglio si scelgono nel riquadro qui sotto.</div>
+    <div class="hint">All'apertura sono spuntate solo le aree R seguite da un numero (R01, R02, R03, R04…), cioè le scaffalature; un clic aggiorna subito la lista. Le aree senza scaffale (COSTOSI, BOMBOLE…) escono in fondo, una pagina per area, con il solo filtro Picking. Il foglio di controllo usa tutte le righe del file, divise per area e poi fra picking e stoccaggio: i filtri qui sopra valgono solo per la lista. Le aree del foglio si scelgono nel riquadro qui sotto.</div>
   </div>
 
   <div id="areePanel" class="panel hidden">
@@ -400,7 +400,7 @@
 </div>
 
 <footer class="ver noprint">
-  <span><strong>Inventario</strong> <span class="sep">·</span> versione 1.5</span>
+  <span><strong>Inventario</strong> <span class="sep">·</span> versione 1.6</span>
   <span class="sep">·</span>
   <span>aggiornato il 27/11/2026</span>
 </footer>
@@ -753,31 +753,38 @@ function build(){
   const pmin = toInt($("fPmin").value);
   const pmax = toInt($("fPmax").value);
 
+  /* righe a scaffale (scaffale e campata): filtri Picking e Piano, come nella macro.
+     Le altre (COSTOSI, BOMBOLE, C04, P01…: niente scaffale o niente campata e piano) entrano se la loro area è
+     spuntata, con il solo filtro Picking, in un blocco "Area X" a pagina nuova dopo gli scaffali */
+  const aScaffale = HA_AREA ? (r => r.scaf !== "" && r.camp !== 0) : (r => r.scaf !== "");
   const base = RECORDS.filter(r => {
-    if(r.scaf === "") return false;   // la lista è solo per le ubicazioni a scaffale, come nella macro
     if(mode === "true"  && !r.pick) return false;
     if(mode === "false" &&  r.pick) return false;
+    if(!aScaffale(r)) return HA_AREA;   // senza colonna Area la lista resta quella della macro
     return r.pian >= pmin && r.pian <= pmax;
   });
   const perAreaLista = new Map();
   base.forEach(r => perAreaLista.set(r.area, (perAreaLista.get(r.area) || 0) + 1));
   renderListaAree(perAreaLista);
-  const list = base.filter(r => SEL_LISTA.has(r.area));
+  const list = base.filter(r => SEL_LISTA.has(r.area) && aScaffale(r));
+  const altre = base.filter(r => SEL_LISTA.has(r.area) && !aScaffale(r));
 
   // ordinamento della macro: Scaffale, Lato, Campata, Piano
   const key = r => pad(r.scafN,6) + r.lato + pad(r.camp,6) + pad(r.pian,3);
   list.sort((a,b) => key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0);
+  // fuori scaffale: per area, poi ubicazione e articolo (a parità resta l'ordine del file)
+  altre.sort((a, b) => cmpTesto(a.area, b.area) || cmpTesto(a.ubic, b.ubic) || cmpTesto(a.art, b.art));
 
-  renderList(list);
+  renderList(list, altre);
   aggiornaCtrl();
 
-  $("cRighe").textContent = list.length.toLocaleString("it-IT");
+  $("cRighe").textContent = (list.length + altre.length).toLocaleString("it-IT");
   $("cBloc").textContent  = String(document.querySelectorAll("#blocks .block").length);
   $("out").classList.remove("hidden");
   mostraLista();
   const vecchio = $("msgVuota");   // un solo avviso, anche se la lista si rigenera a ogni clic
   if(vecchio) vecchio.remove();
-  if(!list.length){ msg("Nessuna riga soddisfa i filtri impostati.", "warn"); $("messages").lastChild.id = "msgVuota"; }
+  if(!list.length && !altre.length){ msg("Nessuna riga soddisfa i filtri impostati.", "warn"); $("messages").lastChild.id = "msgVuota"; }
 }
 
 /* ---------- aree della lista inventario ---------- */
@@ -806,33 +813,49 @@ $("listaNessuna").addEventListener("click", () => { SEL_LISTA = new Set(); build
 $("listaDefault").addEventListener("click", () => { listaDefault(); build(); });
 
 /* --- lista inventario: un blocco per Scaffale + Lato, uno per pagina --- */
-function renderList(list){
+/* list: righe a scaffale, un blocco per Scaffale + Lato; altre: righe fuori scaffale, un blocco per Area */
+function renderList(list, altre){
   $("genDate").textContent = oraGen();
   const host = $("blocks");
   host.innerHTML = "";
   let cur = null, tbody = null;
 
-  list.forEach(r => {
-    const k = r.scaf + "|" + r.lato;
-    if(k !== cur){
-      cur = k;
-      const sec = document.createElement("section");
-      sec.className = "block";
-      sec.innerHTML =
-        `<div class="banner">Scaffale ${r.scaf}&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;Lato ${r.lato}</div>`
-      + `<table class="list"><thead><tr>`
-      + `<th class="c-ubic">Ubicazione Corrente</th><th class="c-art">Articolo</th>`
-      + `<th class="c-bc">Barcode</th><th class="c-desc">Descrizione Articolo</th>`
-      + `</tr></thead><tbody></tbody></table>`;
-      host.appendChild(sec);
-      tbody = sec.querySelector("tbody");
-    }
+  const blocco = banner => {
+    const sec = document.createElement("section");
+    sec.className = "block";
+    sec.innerHTML =
+      `<div class="banner">${banner}</div>`
+    + `<table class="list"><thead><tr>`
+    + `<th class="c-ubic">Ubicazione Corrente</th><th class="c-art">Articolo</th>`
+    + `<th class="c-bc">Barcode</th><th class="c-desc">Descrizione Articolo</th>`
+    + `</tr></thead><tbody></tbody></table>`;
+    host.appendChild(sec);
+    return sec.querySelector("tbody");
+  };
+  const riga = r => {
     const tr = document.createElement("tr");
     tr.innerHTML = `<td class="c-ubic">${esc(r.ubic)}</td>`
                  + `<td class="c-art">${esc(r.art)}</td>`
                  + `<td class="c-bc">${barcodeSvg(r.art)}</td>`
                  + `<td class="c-desc">${esc(r.desc)}</td>`;
     tbody.appendChild(tr);
+  };
+
+  list.forEach(r => {
+    const k = r.scaf + "|" + r.lato;
+    if(k !== cur){
+      cur = k;
+      tbody = blocco(`Scaffale ${r.scaf}&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;Lato ${r.lato}`);
+    }
+    riga(r);
+  });
+  cur = null;
+  (altre || []).forEach(r => {
+    if(r.area !== cur){
+      cur = r.area;
+      tbody = blocco(`Area ${esc(r.area)}`);
+    }
+    riga(r);
   });
 }
 

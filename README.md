@@ -37,6 +37,7 @@ Sostituisce le macro `GeneraInventario` e `GeneraFoglioControllo` del file `Inve
 **Lista inventario**
 
 - Filtri: Picking (default *solo VERO*), intervallo Piano (default 010–019) e aree, modificabili a video. All'apertura sono spuntate solo le aree R seguite da un numero (R01…R04, le scaffalature); per ogni area si vede quante righe porterebbe nella lista.
+- Le aree senza scaffale (COSTOSI, BOMBOLE…) o senza campata e piano (C04, P01, RIS), se spuntate, escono in fondo in un blocco *Area X* a pagina nuova, con il solo filtro Picking.
 - Lato calcolato dalla campata con la stessa regola della macro: `(campata \ 10)` pari → **DX**, dispari → **SX**.
 - Ordinamento Scaffale → Lato → Campata → Piano, con banner *Scaffale N | Lato X* e cambio pagina a ogni blocco, intestazione ripetuta su ogni pagina.
 - Barcode **Code 39** disegnati come grafica vettoriale: non serve installare il font *Free 3 of 9 Extended* sul PC che stampa.
