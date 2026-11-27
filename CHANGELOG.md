@@ -13,7 +13,11 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
 - 1.1 — grafica unificata, barra di navigazione, tema scuro.
 - 1.0 — versione iniziale (sviluppata a parte): confronto rotture / found con delta, totali ed export Excel.
 
-## Inventario — 1.3 (27/11/2026)
+## Inventario — 1.4 (27/11/2026)
+- 1.4 — il riquadro *Risultato*, con i pulsanti di stampa, sta subito sotto l'area di caricamento e gli eventuali
+  messaggi; sotto vengono i filtri della lista, le aree del foglio di controllo e il report conta.
+  La lista inventario non compare più a video (si stampa come prima); la casella *Mostra la lista inventario*,
+  spenta all'apertura, la fa vedere.
 - 1.3 — nuovo **Report conta**: si scelgono le aree (all'apertura nessuna) e per ciascuna esce, da una pagina nuova,
   l'elenco di ubicazioni e articoli, una riga per ubicazione + articolo con le quantità sommate, e una casella larga per
   la conta. In cima a ogni area *NOME INVENTARIO* e *SPUNTATORE* da compilare; il nome si può scrivere a video una volta
@@ -77,7 +81,8 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
   Tabelle modificabili stato contabile → magazzino (DISPONIBILE → 01, SHORT → AS, il resto → NV) e
   U.M. → colli o pezzi (CT, CF, CS, PZ, PC a colli; BT, FS, BO, PL a pezzi).
 
-## Home — 1.10 (27/11/2026)
+## Home — 1.11 (27/11/2026)
+- 1.11 — scheda aggiornata per Inventario 1.4.
 - 1.10 — scheda aggiornata per Inventario 1.3.
 - 1.9 — scheda aggiornata per Inventario 1.2.
 - 1.8 — scheda aggiornata per Inventario 1.1.

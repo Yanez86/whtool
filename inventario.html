@@ -283,6 +283,28 @@
   </div>
   <div id="messages"></div>
 
+  <div id="out" class="panel hidden">
+    <h2>Risultato</h2>
+    <div class="cards">
+      <div class="card"><div class="k">Righe lista</div><div class="v" id="cRighe">0</div></div>
+      <div class="card"><div class="k">Blocchi / pagine</div><div class="v" id="cBloc">0</div></div>
+      <div class="card"><div class="k">Corridoi picking</div><div class="v" id="cPick">0</div></div>
+      <div class="card"><div class="k">Corridoi stoccaggio</div><div class="v" id="cStock">0</div></div>
+    </div>
+    <div class="btns">
+      <button class="primary" id="printList">Stampa lista inventario</button>
+      <button class="primary" id="printCtrl">Stampa foglio di controllo</button>
+      <button id="again">Carica un altro file</button>
+      <label style="display:flex;align-items:center;gap:6px;margin-left:auto">
+        <input type="checkbox" id="showList"> Mostra la lista inventario
+      </label>
+      <label style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="showCtrl"> Mostra il foglio di controllo
+      </label>
+    </div>
+    <div class="hint">La stampa esce in A4 verticale, un blocco Scaffale + Lato per pagina. Per il PDF usa “Salva come PDF” nella finestra di stampa del browser.</div>
+  </div>
+
   <div id="config" class="panel hidden">
     <h2>Filtri della lista inventario</h2>
     <div class="meta" id="fileinfo"></div>
@@ -315,25 +337,6 @@
       <button id="areeDefault">Ripristina</button>
     </div>
     <div class="hint">Le aree di ingresso e uscita (tutte quelle che iniziano per I o U: I01, U09_B, UCORSIA502…) partono escluse, perché a inventario devono essere vuote; tutte le altre entrano. Un clic toglie o rimette un'area. A ogni file caricato si riparte da qui.</div>
-  </div>
-
-  <div id="out" class="panel hidden">
-    <h2>Risultato</h2>
-    <div class="cards">
-      <div class="card"><div class="k">Righe lista</div><div class="v" id="cRighe">0</div></div>
-      <div class="card"><div class="k">Blocchi / pagine</div><div class="v" id="cBloc">0</div></div>
-      <div class="card"><div class="k">Corridoi picking</div><div class="v" id="cPick">0</div></div>
-      <div class="card"><div class="k">Corridoi stoccaggio</div><div class="v" id="cStock">0</div></div>
-    </div>
-    <div class="btns">
-      <button class="primary" id="printList">Stampa lista inventario</button>
-      <button class="primary" id="printCtrl">Stampa foglio di controllo</button>
-      <button id="again">Carica un altro file</button>
-      <label style="display:flex;align-items:center;gap:6px;margin-left:auto">
-        <input type="checkbox" id="showCtrl"> Mostra il foglio di controllo
-      </label>
-    </div>
-    <div class="hint">La stampa esce in A4 verticale, un blocco Scaffale + Lato per pagina. Per il PDF usa “Salva come PDF” nella finestra di stampa del browser.</div>
   </div>
 
   <div id="contaPanel" class="panel hidden">
@@ -388,7 +391,7 @@
 </div>
 
 <footer class="ver noprint">
-  <span><strong>Inventario</strong> <span class="sep">·</span> versione 1.3</span>
+  <span><strong>Inventario</strong> <span class="sep">·</span> versione 1.4</span>
   <span class="sep">·</span>
   <span>aggiornato il 27/11/2026</span>
 </footer>
@@ -723,6 +726,9 @@ $("again").addEventListener("click", () => {
   $("docList").classList.add("hidden"); $("docCtrl").classList.add("hidden"); $("docConta").classList.add("hidden");
   $("file").value = ""; window.scrollTo({top:0,behavior:"smooth"});
 });
+/* la lista a video si vede solo a richiesta: si stampa comunque con "Stampa lista inventario" */
+const mostraLista = () => $("docList").classList.toggle("hidden", !$("showList").checked || !$("blocks").children.length);
+$("showList").addEventListener("change", mostraLista);
 $("showCtrl").addEventListener("change", e => {
   $("docCtrl").classList.toggle("hidden", !e.target.checked);
 });
@@ -750,7 +756,7 @@ function build(){
   $("cRighe").textContent = list.length.toLocaleString("it-IT");
   $("cBloc").textContent  = String(document.querySelectorAll("#blocks .block").length);
   $("out").classList.remove("hidden");
-  $("docList").classList.toggle("hidden", list.length === 0);
+  mostraLista();
   if(!list.length) msg("Nessuna riga soddisfa i filtri impostati.", "warn");
 }
 
