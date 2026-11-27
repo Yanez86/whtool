@@ -13,7 +13,10 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
 - 1.1 — grafica unificata, barra di navigazione, tema scuro.
 - 1.0 — versione iniziale (sviluppata a parte): confronto rotture / found con delta, totali ed export Excel.
 
-## Inventario — 1.1 (27/11/2026)
+## Inventario — 1.2 (27/11/2026)
+- 1.2 — lista e foglio di controllo si stampano senza l'indirizzo della pagina, la data e il titolo che il browser
+  aggiunge nei margini: margine di pagina a zero, con i margini (10 mm sopra e sotto, 8 mm ai lati) spostati nel
+  contenuto e ripetuti su ogni pagina. Impaginazione invariata (stesse pagine e stesse righe per pagina).
 - 1.1 — il foglio di controllo è diviso **per area** (colonna `Area` della giacenza) e, dentro, fra picking e
   stoccaggio come prima: ogni tabella porta area e zona nel titolo. Le aree senza corridoi e campate (BOMBOLE,
   COSTOSI, C04, P01, RIS…), che prima non comparivano, stanno in fondo in *Altre aree*, una riga per area e zona
@@ -68,7 +71,8 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
   Tabelle modificabili stato contabile → magazzino (DISPONIBILE → 01, SHORT → AS, il resto → NV) e
   U.M. → colli o pezzi (CT, CF, CS, PZ, PC a colli; BT, FS, BO, PL a pezzi).
 
-## Home — 1.8 (27/11/2026)
+## Home — 1.9 (27/11/2026)
+- 1.9 — scheda aggiornata per Inventario 1.2.
 - 1.8 — scheda aggiornata per Inventario 1.1.
 - 1.7 — la scheda di Spacchetta borderò passa nella sezione **Obsoleti**, in fondo alla home, chiusa all'apertura
   (si apre con un clic). La voce "Borderò" resta nella barra in alto.

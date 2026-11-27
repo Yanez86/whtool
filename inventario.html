@@ -170,6 +170,10 @@
   .ctrl-foot{max-width:620px;margin:14px auto 0;font-size:10px;color:#555;
     font-family:Calibri,Carlito,Arial,sans-serif}
   .sec{break-inside:avoid;page-break-inside:avoid}
+  /* contenitore dei documenti stampabili: a video non si vede (righe vuote, nessun bordo) */
+  table.pagina{width:100%;border-collapse:collapse;border-spacing:0;font-size:inherit}
+  table.pagina > * > tr > td{padding:0;border:none;white-space:normal;background:none;position:static;
+    font-weight:inherit;color:inherit}
 
   /* riquadro aree del foglio di controllo */
   .areas{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin-top:12px}
@@ -187,7 +191,13 @@
 
   /* ---------- stampa ---------- */
   @media print{
-    @page{size:A4 portrait;margin:10mm 8mm}
+    /* margine di pagina a zero: così il browser non stampa URL, titolo e data. I margini stanno nel contenuto:
+       10 mm sopra e sotto dalle righe vuote di thead/tfoot di table.pagina (ripetute su ogni pagina),
+       8 mm ai lati dal padding della cella */
+    @page{size:A4 portrait;margin:0}
+    html,body{margin:0;padding:0}
+    table.pagina > thead > tr > td, table.pagina > tfoot > tr > td{height:10mm}
+    table.pagina > tbody > tr > td{padding:0 8mm}
     .topbar,.noprint{display:none !important}
     body{background:#fff}
     .doc{display:none;max-width:none;margin:0;padding:0;border:none;border-radius:0}
@@ -291,22 +301,28 @@
 </div>
 
 <!-- ============ documenti stampabili ============ -->
+<!-- la tabella .pagina serve solo in stampa: la riga vuota di thead e tfoot si ripete su ogni pagina
+     e fa da margine alto e basso, così la pagina può avere margine zero e il browser non stampa l'URL -->
 <div id="docList" class="doc hidden">
+  <table class="pagina"><thead><tr><td></td></tr></thead><tfoot><tr><td></td></tr></tfoot><tbody><tr><td>
   <div class="docmeta">Lista inventario — generata il <span id="genDate"></span></div>
   <div id="blocks"></div>
+  </td></tr></tbody></table>
 </div>
 
 <div id="docCtrl" class="doc hidden">
+  <table class="pagina"><thead><tr><td></td></tr></thead><tfoot><tr><td></td></tr></tfoot><tbody><tr><td>
   <h1 class="ctrl-title">INVENTARIO del <span id="ctrlDate"></span></h1>
   <div class="ctrl-name">
     <span>NOME INVENTARIO:</span>
     <input id="invName" type="text" placeholder="">
   </div>
   <div id="ctrlTables"></div>
+  </td></tr></tbody></table>
 </div>
 
 <footer class="ver noprint">
-  <span><strong>Inventario</strong> <span class="sep">·</span> versione 1.1</span>
+  <span><strong>Inventario</strong> <span class="sep">·</span> versione 1.2</span>
   <span class="sep">·</span>
   <span>aggiornato il 27/11/2026</span>
 </footer>

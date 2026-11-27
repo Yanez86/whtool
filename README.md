@@ -48,7 +48,7 @@ Sostituisce le macro `GeneraInventario` e `GeneraFoglioControllo` del file `Inve
 - Riquadro **Aree del foglio di controllo** per scegliere quali aree stampare. Le aree di ingresso e uscita (tutte quelle che iniziano per I o U: I01, U09_B, UCORSIA502…) partono escluse, perché a inventario devono essere vuote; se nel file hanno delle righe compare un avviso con l'elenco. In fondo al foglio, l'elenco delle aree escluse.
 - Campo *Nome inventario* compilabile prima di stampare; usa tutte le righe del file, senza i filtri della lista (come la macro).
 
-La stampa esce in A4 verticale. Per il PDF: *Stampa → Salva come PDF*, lasciando attiva la stampa degli sfondi.
+La stampa esce in A4 verticale, senza l'indirizzo della pagina e la data che il browser aggiunge nei margini. Per il PDF: *Stampa → Salva come PDF*, lasciando attiva la stampa degli sfondi.
 
 ## Verifica inventario
 

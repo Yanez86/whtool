@@ -87,6 +87,11 @@ Vengono da macro VBA e script Python già in uso: il comportamento deve restare 
   le sei varianti di rilettura lanciate insieme.
 - **pdf-lib non supporta `horizontalScale` in `drawText`.** Per il testo invisibile si riduce la dimensione
   del font finché la parola rientra nella sua larghezza.
+- **Stampa senza URL e data del browser:** si ottiene con `@page{margin:0}` e i margini dentro il contenuto (come
+  in Etichette). Se il documento continua su più pagine (lista inventario) il padding non basta, perché vale solo in
+  cima e in fondo: si avvolge in `table.pagina` con una riga vuota in `thead` e `tfoot`, che il browser ripete su ogni
+  pagina. Effetto collaterale: dentro `table.pagina` un selettore discendente come `tbody tr` prende anche le righe di
+  `thead` delle tabelle interne; nei test usare `:scope > tbody > tr`.
 - **localStorage e simili non servono**: nessuno stato va salvato tra una sessione e l'altra.
 - **SheetJS 0.18.5 (gratuito) non scrive stili**: riscrivendo un file perde bordi, colori e larghezze, e non sa
   colorare le righe. Per restituire il file del cliente si modifica il suo XML con JSZip (celle, righe nuove,
