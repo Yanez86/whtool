@@ -10,7 +10,7 @@ nessun package manager: si modificano i file HTML e si caricano sul repository.
 | `index.html` | Home con le schede dei tool; quelli obsoleti (oggi solo il Borderò) in `<details class="obsoleti">`, chiuso |
 | `giacenze.html` | Aggregatore giacenze (Excel → riepilogo per articolo) |
 | `rotture.html` | Report rotture / Lost & Found (due Excel a confronto) |
-| `inventario.html` | Lista di spunta con barcode + foglio di controllo corridoi (stampa A4) |
+| `inventario.html` | Lista di spunta con barcode + foglio di controllo per area + report conta (stampa A4) |
 | `verifica-inventario.html` | Confronto fisico/logico dell'export di inventario (Stock o Picking), scheda Riconta |
 | `bordero.html` | Spacchetta borderò: PDF scansionati → un PDF per viaggio, con OCR |
 | `etichette.html` | Etichette packing list: una etichetta A4 per Area + Versione (bancale) |
@@ -50,6 +50,10 @@ Vengono da macro VBA e script Python già in uso: il comportamento deve restare 
   perdono: vanno in *Altre aree*, una riga per area e zona. Aree di ingresso/uscita = **tutte** quelle che iniziano
   per `I` o `U` (`/^[IU]/i`, comprese `UCORSIA502` e simili, confermato dall'utente): escluse in partenza, con avviso
   a video che le elenca se hanno righe; si possono rimettere dal riquadro Aree.
+- **Report conta:** aree scelte a video, **nessuna** all'apertura; una riga per `Ubicazione Corrente` + `Articolo` con
+  colli (`Quantità Stoccata`) e pezzi (`Pezzi Stoccati`) sommati; una pagina nuova per area, con NOME INVENTARIO a
+  sinistra e SPUNTATORE a destra. Caselle Colli e Pezzi spente di default: senza spunta è una conta alla cieca e il
+  titolo lo dice. Ordine: ubicazioni a scaffale con la chiave della lista, poi le altre per codice.
 - **Borderò:** solo quelli del magazzino di partenza (default 3980 / SETTALA) aprono un pacchetto; quelli di
   altri magazzini sono allegati. Il magazzino si legge **solo da ciò che sta sopra la riga "Viaggio:"**,
   altrimenti si prende per errore il "Mag. Dest.". Ogni PDF di input fa storia a sé, salvo l'opzione di unione.
@@ -110,6 +114,8 @@ con Playwright e Chromium headless su `file:///…`, intercettando i CDN così d
 - **Aggregatore giacenze:** l'aggregazione va confrontata con lo stesso calcolo fatto in pandas.
 - **Inventario:** il file `Inventario_Macro.xlsm` contiene già l'output della macro su 454 righe reali;
   si ricostruisce da lì una giacenza sorgente e si verifica che righe, ordine e banner coincidano.
+  Foglio di controllo e report conta si rifanno in pandas (raggruppamento per area / ubicazione + articolo) e si
+  confrontano riga per riga; le stampe si generano con `displayHeaderFooter: true` per controllare che l'URL non esca.
 - **Borderò:** i testi OCR reali delle pagine di prova si conservano in un JSON e si rigioca l'analisi
   sostituendo `renderHeader` e `ocrText`; il risultato atteso sul PDF di prova è 8 pacchetti,
   pagine borderò 1, 10, 14, 22, 29, 30, 35, 42, nessuna pagina non assegnata.

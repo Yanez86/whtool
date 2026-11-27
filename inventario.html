@@ -189,6 +189,40 @@
   .msg ul.codici{margin:8px 0 0;padding-left:20px;max-height:220px;overflow:auto}
   .msg ul.codici li{margin:2px 0}
 
+  /* riquadro report conta */
+  .area.on{border-color:var(--accent);background:var(--accent-soft)}
+  .chk{display:flex;align-items:center;gap:8px;cursor:pointer}
+  .txt{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel);
+    color:var(--ink);min-width:0;width:260px;max-width:100%}
+
+  /* report conta: una sezione per area, da pagina nuova */
+  .conta-sez + .conta-sez{margin-top:28px}
+  .conta-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;color:#000;
+    font-family:Calibri,Carlito,Arial,sans-serif;margin-bottom:10px}
+  .conta-top .tit{font-size:18px;font-weight:700;letter-spacing:.02em}
+  .conta-top .dt{font-size:12px;color:#555}
+  .conta-campi{display:flex;gap:24px;margin-bottom:14px;color:#000;font-weight:700;font-size:12px;
+    font-family:Calibri,Carlito,Arial,sans-serif}
+  .conta-campi > div{display:flex;align-items:flex-end;gap:8px;flex:1;min-width:0}
+  .conta-campi > div + div{flex:0 1 42%}
+  .conta-campi .riga{flex:1;min-width:0;min-height:26px;background:#ffffcc;border-bottom:2px solid #000;
+    font-weight:400;padding:5px 8px}
+  table.conta{width:100%;border-collapse:collapse;table-layout:fixed;color:#000;
+    font-family:Calibri,Carlito,Arial,sans-serif}
+  .doc table.conta th{background:#4472c4;color:#fff;font-size:11px;font-weight:700;text-transform:none;
+    letter-spacing:0;padding:5px 6px;text-align:center;position:static;border:1px solid #4472c4;white-space:normal}
+  .doc table.conta th.title{background:#1f497d;border-color:#1f497d;font-size:13px;padding:6px}
+  .doc table.conta > tbody > tr > td{border-bottom:1px solid #c8c8c8;padding:3px 6px;font-size:12px;height:12mm;
+    vertical-align:middle;white-space:normal;word-break:break-word;color:#000}
+  .doc table.conta > tbody > tr:nth-child(even) > td{background:#edf2fc}
+  .doc table.conta > tbody > tr:nth-child(odd) > td{background:#fff}
+  .doc table.conta td.c{text-align:center}
+  .doc table.conta td.n{text-align:right;font-variant-numeric:tabular-nums}
+  .doc table.conta > tbody > tr > td.spazio{background:#fff;border:1.5px solid #000}
+  .doc table.conta .pk{display:block;font-size:10px;color:#555}
+  /* a video, su schermi stretti, i documenti scorrono dentro il loro riquadro invece di allargare la pagina */
+  @media screen{ .doc{overflow-x:auto} }
+
   /* ---------- stampa ---------- */
   @media print{
     /* margine di pagina a zero: così il browser non stampa URL, titolo e data. I margini stanno nel contenuto:
@@ -203,6 +237,9 @@
     .doc{display:none;max-width:none;margin:0;padding:0;border:none;border-radius:0}
     body.printing-list #docList{display:block}
     body.printing-ctrl #docCtrl{display:block}
+    body.printing-conta #docConta{display:block}
+    .conta-sez + .conta-sez{break-before:page;page-break-before:always;margin-top:0}
+    .doc table.conta thead{display:table-header-group}
     .block{break-before:page;page-break-before:always}
     #blocks .block:first-child{break-before:auto;page-break-before:auto}
     .doc table.list thead{display:table-header-group}
@@ -236,7 +273,7 @@
 <div class="wrap noprint">
   <header>
     <h1>Inventario</h1>
-    <p>Trascina l'estratto <strong>Giacenza UdC</strong>: ottieni la lista di spunta con i barcode e il foglio di controllo corridoi, pronti da stampare. Tutto avviene nel browser, nessun dato viene caricato online.</p>
+    <p>Trascina l'estratto <strong>Giacenza UdC</strong>: ottieni la lista di spunta con i barcode, il foglio di controllo corridoi e il report conta per area, pronti da stampare. Tutto avviene nel browser, nessun dato viene caricato online.</p>
   </header>
 
   <div id="drop">
@@ -298,6 +335,29 @@
     </div>
     <div class="hint">La stampa esce in A4 verticale, un blocco Scaffale + Lato per pagina. Per il PDF usa “Salva come PDF” nella finestra di stampa del browser.</div>
   </div>
+
+  <div id="contaPanel" class="panel hidden">
+    <h2>Report conta</h2>
+    <div class="meta">Per ogni area scelta esce un report, da una pagina nuova, con tutte le ubicazioni e gli articoli e uno spazio per la conta: una riga per ubicazione e articolo, con le quantità sommate.</div>
+    <div class="areas" id="contaAree"></div>
+    <div class="btns">
+      <button id="contaTutte">Seleziona tutte</button>
+      <button id="contaNessuna">Nessuna</button>
+      <span class="meta" id="contaInfo"></span>
+    </div>
+    <div class="btns">
+      <span style="font-weight:600">Mostra nel report:</span>
+      <label class="chk"><input type="checkbox" id="qColli"> Colli</label>
+      <label class="chk"><input type="checkbox" id="qPezzi"> Pezzi</label>
+      <span class="meta" id="contaNota"></span>
+    </div>
+    <div class="btns">
+      <label class="chk">Nome inventario <input id="contaNome" class="txt" type="text"></label>
+      <button class="primary" id="printConta" style="margin-left:auto" disabled>Stampa report conta</button>
+      <label class="chk"><input type="checkbox" id="showConta"> Mostra il report</label>
+    </div>
+    <div class="hint">Senza spunta su Colli e Pezzi il report è una <strong>conta alla cieca</strong>: chi conta non vede le quantità a sistema. Il nome inventario è lo stesso del foglio di controllo: se lo scrivi esce in cima a ogni area, se resta vuoto la riga si compila a mano. A ogni file caricato si riparte senza aree scelte.</div>
+  </div>
 </div>
 
 <!-- ============ documenti stampabili ============ -->
@@ -321,8 +381,14 @@
   </td></tr></tbody></table>
 </div>
 
+<div id="docConta" class="doc hidden">
+  <table class="pagina"><thead><tr><td></td></tr></thead><tfoot><tr><td></td></tr></tfoot><tbody><tr><td>
+  <div id="contaSezioni"></div>
+  </td></tr></tbody></table>
+</div>
+
 <footer class="ver noprint">
-  <span><strong>Inventario</strong> <span class="sep">·</span> versione 1.2</span>
+  <span><strong>Inventario</strong> <span class="sep">·</span> versione 1.3</span>
   <span class="sep">·</span>
   <span>aggiornato il 27/11/2026</span>
 </footer>
@@ -416,6 +482,12 @@ function toInt(v){
   const n = parseInt(String(v).trim(), 10);
   return isNaN(n) ? 0 : n;
 }
+/* quantità: numero dal file (anche testo con la virgola), 0 se vuota */
+function toNum(v){
+  if(typeof v === "number") return isFinite(v) ? v : 0;
+  const n = Number(String(v ?? "").trim().replace(",", "."));
+  return isFinite(n) ? n : 0;
+}
 /* Lato dalla campata: (campata \ 10) mod 2 == 0 -> DX, altrimenti SX */
 function latoDaCampata(campata){
   return (Math.trunc(campata / 10) % 2 === 0) ? "DX" : "SX";
@@ -437,6 +509,10 @@ let SEL = new Set(); // aree scelte per il foglio di controllo
 
 /* aree di ingresso (I…) e uscita (U…): a inventario devono essere vuote */
 const RE_IO = /^[IU]/i;   // tutte le aree che iniziano per I o U (I01, U09_B, U22, UCORSIA502…)
+
+let SEL_CONTA = new Set();          // aree scelte per il report conta: all'apertura nessuna
+let CONTA_DATI = new Map();         // area -> righe del report (ubicazione + articolo)
+let QCOL = {colli:false, pezzi:false};  // colonne di quantità presenti nel file
 const SENZA_AREA = "SENZA AREA";
 
 /* ---------- lettura file ---------- */
@@ -458,9 +534,14 @@ const WANT = {
   scaf: ["scaffale"],
   camp: ["campata"],
   pian: ["piano"],
-  area: ["area"]
+  area: ["area"],
+  colli: ["quantita stoccata"],
+  pezzi: ["pezzi stoccati"],
+  um:   ["u.m."]
 };
-const OPZIONALI = ["area"];   // senza Area la lista funziona lo stesso; il foglio di controllo no
+/* senza queste la lista funziona lo stesso: senza Area il foglio di controllo non divide per aree,
+   senza quantità il report conta non può mostrarle */
+const OPZIONALI = ["area", "colli", "pezzi", "um"];
 
 /* riga di intestazione: quella con più nomi attesi nelle prime 30 righe (default riga 4) */
 function findHeaderRow(aoa){
@@ -533,9 +614,13 @@ function parse(aoa, sheetName){
       ubic: ubic,
       art:  String(r[idx.art]  ?? "").trim(),
       desc: String(r[idx.desc] ?? "").trim(),
-      pick: isPicking(r[idx.pick])
+      pick: isPicking(r[idx.pick]),
+      colli: idx.colli < 0 ? 0 : toNum(r[idx.colli]),
+      pezzi: idx.pezzi < 0 ? 0 : toNum(r[idx.pezzi]),
+      um:   idx.um < 0 ? "" : String(r[idx.um] ?? "").trim()
     });
   }
+  QCOL = {colli: idx.colli >= 0, pezzi: idx.pezzi >= 0};
 
   if(!RECORDS.length){ msg("Non ho trovato righe di giacenza nel file.", "err"); return; }
 
@@ -547,6 +632,7 @@ function parse(aoa, sheetName){
   $("config").classList.remove("hidden");
   preparaAree();
   build();
+  preparaConta();
 }
 
 /* ---------- aree del foglio di controllo ---------- */
@@ -631,9 +717,10 @@ $("areeDefault").addEventListener("click", () => { areeDefault(); renderAree(); 
 /* ---------- generazione ---------- */
 $("run").addEventListener("click", build);
 $("again").addEventListener("click", () => {
-  RECORDS = []; AREE = []; SEL = new Set(); clearMsg();
+  RECORDS = []; AREE = []; SEL = new Set(); SEL_CONTA = new Set(); CONTA_DATI = new Map(); clearMsg();
   $("config").classList.add("hidden"); $("out").classList.add("hidden"); $("areePanel").classList.add("hidden");
-  $("docList").classList.add("hidden"); $("docCtrl").classList.add("hidden");
+  $("contaPanel").classList.add("hidden");
+  $("docList").classList.add("hidden"); $("docCtrl").classList.add("hidden"); $("docConta").classList.add("hidden");
   $("file").value = ""; window.scrollTo({top:0,behavior:"smooth"});
 });
 $("showCtrl").addEventListener("change", e => {
@@ -768,11 +855,103 @@ function tabellaAltre(items){
        + `</thead><tbody>${rows}</tbody></table>`;
 }
 
+/* ---------- report conta ----------
+   una riga per ubicazione + articolo con colli (Quantità Stoccata) e pezzi (Pezzi Stoccati) sommati;
+   ordine della lista per le ubicazioni a scaffale (Scaffale, Lato, Campata, Piano), poi le altre per codice */
+const pezziPerCollo = um => { const m = /(\d+)\s*PEZZ/i.exec(um); return m ? Number(m[1]) : 0; };
+
+function preparaConta(){
+  CONTA_DATI = new Map();
+  RECORDS.forEach(r => {
+    if(!CONTA_DATI.has(r.area)) CONTA_DATI.set(r.area, new Map());
+    const m = CONTA_DATI.get(r.area), k = r.ubic + "|" + r.art;
+    let e = m.get(k);
+    if(!e){
+      e = {ubic: r.ubic, art: r.art, desc: r.desc, colli: 0, pezzi: 0, pz: pezziPerCollo(r.um),
+           ord: r.scaf !== "" && r.camp !== 0 ? pad(r.scafN,6) + r.lato + pad(r.camp,6) + pad(r.pian,3) : "~" + r.ubic};
+      m.set(k, e);
+    }
+    e.colli += r.colli; e.pezzi += r.pezzi;
+  });
+  CONTA_DATI.forEach((m, area) => CONTA_DATI.set(area, [...m.values()].sort((a, b) =>
+    cmpTesto(a.ord, b.ord) || cmpTesto(a.ubic, b.ubic) || cmpTesto(a.art, b.art))));
+
+  SEL_CONTA = new Set();
+  [["qColli", "colli", "Quantità Stoccata"], ["qPezzi", "pezzi", "Pezzi Stoccati"]].forEach(([id, k, col]) => {
+    $(id).checked = false;
+    $(id).disabled = !QCOL[k];
+    $(id).parentNode.title = QCOL[k] ? "" : "Nel file manca la colonna " + col;
+  });
+  $("contaNome").value = $("invName").value;
+  renderContaAree();
+  aggiornaConta();
+  $("contaPanel").classList.remove("hidden");
+}
+
+function renderContaAree(){
+  $("contaAree").innerHTML = AREE.map((a, i) => {
+    const on = SEL_CONTA.has(a.code), n = CONTA_DATI.get(a.code).length;
+    return `<label class="area${on ? " on" : ""}${a.io ? " io" : ""}">`
+         + `<input type="checkbox" data-i="${i}"${on ? " checked" : ""}>`
+         + `<span><span class="code">${esc(a.code)}</span>`
+         + `<span class="sub">${a.io ? "ingresso / uscita · " : ""}${righe(n)} da contare</span></span></label>`;
+  }).join("");
+}
+
+const fmtQ = (v, dec) => Number(v.toFixed(dec)).toLocaleString("it-IT", {maximumFractionDigits: dec});
+
+function sezioneConta(code, rows, c, p){
+  const cieca = !c && !p;
+  const cols = [["Ubicazione", 17], ["Articolo", 10], ["Descrizione", 0]]
+    .concat(c ? [["Colli", 9]] : []).concat(p ? [["Pezzi", 8]] : []).concat([["Conta", 26]]);
+  cols[2][1] = 100 - cols.reduce((s, x) => s + x[1], 0);
+  const body = rows.map(r => `<tr><td>${esc(r.ubic)}</td><td class="c"><b>${esc(r.art)}</b></td>`
+    + `<td>${esc(r.desc)}${r.pz ? `<span class="pk">collo da ${r.pz} pz</span>` : ""}</td>`
+    + (c ? `<td class="n">${fmtQ(r.colli, 3)}</td>` : "")
+    + (p ? `<td class="n">${fmtQ(r.pezzi, 0)}</td>` : "")
+    + `<td class="spazio"></td></tr>`).join("");
+  return `<section class="conta-sez">`
+    + `<div class="conta-top"><span class="tit">${cieca ? "CONTA ALLA CIECA" : "CONTA"} — AREA ${esc(code)}</span>`
+    + `<span class="dt">${oggi()}</span></div>`
+    + `<div class="conta-campi"><div><span>NOME INVENTARIO:</span><span class="riga nome-inv">${esc($("contaNome").value.trim())}</span></div>`
+    + `<div><span>SPUNTATORE:</span><span class="riga"></span></div></div>`
+    + `<table class="conta"><colgroup>${cols.map(x => `<col style="width:${x[1]}%">`).join("")}</colgroup><thead>`
+    + `<tr><th class="title" colspan="${cols.length}">AREA ${esc(code)} &nbsp;·&nbsp; ${righe(rows.length)}</th></tr>`
+    + `<tr>${cols.map(x => `<th>${x[0]}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></section>`;
+}
+
+function aggiornaConta(){
+  const c = QCOL.colli && $("qColli").checked, p = QCOL.pezzi && $("qPezzi").checked;
+  $("contaNota").textContent = !c && !p ? "→ conta alla cieca"
+    : "→ con " + [c ? "colli" : "", p ? "pezzi" : ""].filter(Boolean).join(" e ") + " a sistema";
+  const codes = AREE.map(a => a.code).filter(x => SEL_CONTA.has(x));
+  const tot = codes.reduce((s, x) => s + CONTA_DATI.get(x).length, 0);
+  $("contaInfo").textContent = codes.length
+    ? `${conta(codes.length, "area", "aree")} · ${righe(tot)} da contare` : "Nessuna area scelta";
+  $("printConta").disabled = !codes.length;
+  $("contaSezioni").innerHTML = codes.map(x => sezioneConta(x, CONTA_DATI.get(x), c, p)).join("");
+  $("docConta").classList.toggle("hidden", !codes.length || !$("showConta").checked);
+}
+
+$("contaAree").addEventListener("change", e => {
+  const a = AREE[Number(e.target.dataset.i)];
+  if(!a) return;
+  if(e.target.checked) SEL_CONTA.add(a.code); else SEL_CONTA.delete(a.code);
+  renderContaAree(); aggiornaConta();
+});
+$("contaTutte").addEventListener("click",   () => { SEL_CONTA = new Set(AREE.map(a => a.code)); renderContaAree(); aggiornaConta(); });
+$("contaNessuna").addEventListener("click", () => { SEL_CONTA = new Set(); renderContaAree(); aggiornaConta(); });
+["qColli", "qPezzi", "showConta"].forEach(id => $(id).addEventListener("change", aggiornaConta));
+/* un solo nome inventario: quello del foglio di controllo e quello del report conta si seguono */
+const scriviNome = v => document.querySelectorAll("#contaSezioni .nome-inv").forEach(s => { s.textContent = v.trim(); });
+$("contaNome").addEventListener("input", e => { $("invName").value = e.target.value; scriviNome(e.target.value); });
+$("invName").addEventListener("input", e => { $("contaNome").value = e.target.value; scriviNome(e.target.value); });
+
 /* ---------- stampa ---------- */
 function stampa(which){
   document.body.classList.add("printing-" + which);
   const after = () => {
-    document.body.classList.remove("printing-list", "printing-ctrl");
+    document.body.classList.remove("printing-list", "printing-ctrl", "printing-conta");
     window.removeEventListener("afterprint", after);
   };
   window.addEventListener("afterprint", after);
@@ -780,6 +959,7 @@ function stampa(which){
 }
 $("printList").addEventListener("click", () => stampa("list"));
 $("printCtrl").addEventListener("click", () => stampa("ctrl"));
+$("printConta").addEventListener("click", () => { if(SEL_CONTA.size){ aggiornaConta(); stampa("conta"); } });
 
 if(typeof XLSX === "undefined"){
   msg("Non riesco a caricare la libreria di lettura Excel da cdnjs.cloudflare.com. Se la rete la blocca, "

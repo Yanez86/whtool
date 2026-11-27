@@ -7,7 +7,7 @@ Sette strumenti web per elaborare gli estratti e i documenti del magazzino. Sono
 | `index.html` | Home con i sette strumenti; Spacchetta borderò sta nella sezione *Obsoleti*, chiusa in fondo |
 | `giacenze.html` | **Aggregatore giacenze** — un file di giacenza UdC diventa un riepilogo per articolo |
 | `rotture.html` | **Report rotture / Lost & Found** — confronto tra due file, con delta e totali |
-| `inventario.html` | **Inventario** — lista di spunta con barcode + foglio di controllo corridoi |
+| `inventario.html` | **Inventario** — lista di spunta con barcode, foglio di controllo per area e report conta (anche alla cieca) |
 | `verifica-inventario.html` | **Verifica inventario** — confronto fisico/logico dell'export di inventario (Stock o Picking), con scheda Riconta stampabile |
 | `bordero.html` | **Spacchetta borderò** — divide i PDF scansionati in un file per viaggio, con OCR |
 | `etichette.html` | **Etichette packing list** — dalla giacenza UdC una etichetta A4 per ogni bancale |
@@ -47,6 +47,13 @@ Sostituisce le macro `GeneraInventario` e `GeneraFoglioControllo` del file `Inve
 - Le aree senza corridoi e campate (BOMBOLE, COSTOSI, C04, P01, RIS…) stanno in fondo, in *Altre aree*: una riga per area e zona, con il numero di ubicazioni.
 - Riquadro **Aree del foglio di controllo** per scegliere quali aree stampare. Le aree di ingresso e uscita (tutte quelle che iniziano per I o U: I01, U09_B, UCORSIA502…) partono escluse, perché a inventario devono essere vuote; se nel file hanno delle righe compare un avviso con l'elenco. In fondo al foglio, l'elenco delle aree escluse.
 - Campo *Nome inventario* compilabile prima di stampare; usa tutte le righe del file, senza i filtri della lista (come la macro).
+
+**Report conta**
+
+- Riquadro con le aree del file da spuntare (all'apertura nessuna): per ogni area esce un report, da una pagina nuova, con una riga per ubicazione e articolo (quantità sommate) e una casella larga per la conta.
+- In cima a ogni area *NOME INVENTARIO* e *SPUNTATORE* da compilare. Il nome inventario si può scrivere a video ed è lo stesso del foglio di controllo; se resta vuoto, la riga si compila a mano.
+- Caselle **Colli** e **Pezzi** per mostrare le quantità a sistema; senza spunta è una **conta alla cieca**.
+- Ubicazioni a scaffale nello stesso ordine della lista (Scaffale, Lato, Campata, Piano), le altre per codice.
 
 La stampa esce in A4 verticale, senza l'indirizzo della pagina e la data che il browser aggiunge nei margini. Per il PDF: *Stampa → Salva come PDF*, lasciando attiva la stampa degli sfondi.
 

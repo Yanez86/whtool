@@ -13,7 +13,13 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
 - 1.1 — grafica unificata, barra di navigazione, tema scuro.
 - 1.0 — versione iniziale (sviluppata a parte): confronto rotture / found con delta, totali ed export Excel.
 
-## Inventario — 1.2 (27/11/2026)
+## Inventario — 1.3 (27/11/2026)
+- 1.3 — nuovo **Report conta**: si scelgono le aree (all'apertura nessuna) e per ciascuna esce, da una pagina nuova,
+  l'elenco di ubicazioni e articoli, una riga per ubicazione + articolo con le quantità sommate, e una casella larga per
+  la conta. In cima a ogni area *NOME INVENTARIO* e *SPUNTATORE* da compilare; il nome si può scrivere a video una volta
+  sola (è lo stesso del foglio di controllo). Le caselle **Colli** e **Pezzi** aggiungono le quantità a sistema
+  (`Quantità Stoccata`, `Pezzi Stoccati`); senza spunta è una **conta alla cieca**. Stampa senza URL del browser.
+  A video, su schermi stretti, i documenti scorrono dentro il loro riquadro invece di allargare la pagina.
 - 1.2 — lista e foglio di controllo si stampano senza l'indirizzo della pagina, la data e il titolo che il browser
   aggiunge nei margini: margine di pagina a zero, con i margini (10 mm sopra e sotto, 8 mm ai lati) spostati nel
   contenuto e ripetuti su ogni pagina. Impaginazione invariata (stesse pagine e stesse righe per pagina).
@@ -71,7 +77,8 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
   Tabelle modificabili stato contabile → magazzino (DISPONIBILE → 01, SHORT → AS, il resto → NV) e
   U.M. → colli o pezzi (CT, CF, CS, PZ, PC a colli; BT, FS, BO, PL a pezzi).
 
-## Home — 1.9 (27/11/2026)
+## Home — 1.10 (27/11/2026)
+- 1.10 — scheda aggiornata per Inventario 1.3.
 - 1.9 — scheda aggiornata per Inventario 1.2.
 - 1.8 — scheda aggiornata per Inventario 1.1.
 - 1.7 — la scheda di Spacchetta borderò passa nella sezione **Obsoleti**, in fondo alla home, chiusa all'apertura
