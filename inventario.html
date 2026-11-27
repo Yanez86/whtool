@@ -333,7 +333,7 @@
       <button id="listaDefault">Ripristina</button>
       <span class="meta" id="listaInfo"></span>
     </div>
-    <div class="hint">All'apertura sono spuntate solo le aree R seguite da un numero (R01, R02, R03, R04…), cioè le scaffalature; un clic aggiorna subito la lista. Le aree senza scaffale (COSTOSI, BOMBOLE…) escono in fondo, una pagina per area, con il solo filtro Picking. Il foglio di controllo usa tutte le righe del file, divise per area e poi fra picking e stoccaggio: i filtri qui sopra valgono solo per la lista. Le aree del foglio si scelgono nel riquadro qui sotto.</div>
+    <div class="hint">All'apertura sono spuntate solo le aree R seguite da un numero (R01, R02, R03, R04…), cioè le scaffalature; un clic aggiorna subito la lista. Le aree senza scaffale (COSTOSI, BOMBOLE…) escono in fondo, una pagina per area, con il solo filtro Picking. Una riga per ubicazione e articolo: le righe di giacenza uguali compaiono una volta sola. Il foglio di controllo usa tutte le righe del file, divise per area e poi fra picking e stoccaggio: i filtri qui sopra valgono solo per la lista. Le aree del foglio si scelgono nel riquadro qui sotto.</div>
   </div>
 
   <div id="areePanel" class="panel hidden">
@@ -400,7 +400,7 @@
 </div>
 
 <footer class="ver noprint">
-  <span><strong>Inventario</strong> <span class="sep">·</span> versione 1.6</span>
+  <span><strong>Inventario</strong> <span class="sep">·</span> versione 1.7</span>
   <span class="sep">·</span>
   <span>aggiornato il 27/11/2026</span>
 </footer>
@@ -763,11 +763,17 @@ function build(){
     if(!aScaffale(r)) return HA_AREA;   // senza colonna Area la lista resta quella della macro
     return r.pian >= pmin && r.pian <= pmax;
   });
+  /* una riga per ubicazione + articolo: le righe di giacenza uguali (più UdC dello stesso articolo nella stessa
+     ubicazione) diventano una sola; articoli diversi nella stessa ubicazione restano righe separate.
+     Si tiene la prima riga nell'ordine del file (richiesta dell'utente, 27/11/2026) */
+  const unico = new Map();
+  base.forEach(r => { const k = r.area + "|" + r.ubic + "|" + r.art; if(!unico.has(k)) unico.set(k, r); });
+  const righeLista = [...unico.values()];
   const perAreaLista = new Map();
-  base.forEach(r => perAreaLista.set(r.area, (perAreaLista.get(r.area) || 0) + 1));
+  righeLista.forEach(r => perAreaLista.set(r.area, (perAreaLista.get(r.area) || 0) + 1));
   renderListaAree(perAreaLista);
-  const list = base.filter(r => SEL_LISTA.has(r.area) && aScaffale(r));
-  const altre = base.filter(r => SEL_LISTA.has(r.area) && !aScaffale(r));
+  const list = righeLista.filter(r => SEL_LISTA.has(r.area) && aScaffale(r));
+  const altre = righeLista.filter(r => SEL_LISTA.has(r.area) && !aScaffale(r));
 
   // ordinamento della macro: Scaffale, Lato, Campata, Piano
   const key = r => pad(r.scafN,6) + r.lato + pad(r.camp,6) + pad(r.pian,3);

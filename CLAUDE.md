@@ -46,6 +46,9 @@ Vengono da macro VBA e script Python già in uso: il comportamento deve restare 
 - **Lista inventario:** filtro Picking vero e piano 010–019; aree scelte a video, all'apertura solo quelle R seguite da
   un numero (`/^R\d/i`: R01…R04; non RESO, RIS, ROTTURE), tutte se il file non ha la colonna Area; ordinamento Scaffale → Lato → Campata → Piano
   con chiave `%06d{lato}%06d%03d`; un banner e un cambio pagina a ogni cambio di Scaffale+Lato.
+  **Una riga per ubicazione + articolo** (non una per riga di giacenza come la macro): le righe uguali si accorpano
+  tenendo la prima nell'ordine del file, articoli diversi nella stessa ubicazione restano separati (richiesta
+  dell'utente, 27/11/2026). Nei test la lista va confrontata con quella della macro/1.0 senza i doppioni.
   Le righe fuori scaffale (senza scaffale o senza campata) delle aree spuntate vengono dopo, un blocco *Area X* a pagina
   nuova per area, ordinate per ubicazione e articolo, con il solo filtro Picking (richiesta dell'utente, 27/11/2026).
   Senza colonna Area nel file restano fuori, come nella macro.

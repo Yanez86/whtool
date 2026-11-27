@@ -40,6 +40,7 @@ Sostituisce le macro `GeneraInventario` e `GeneraFoglioControllo` del file `Inve
 - Le aree senza scaffale (COSTOSI, BOMBOLE…) o senza campata e piano (C04, P01, RIS), se spuntate, escono in fondo in un blocco *Area X* a pagina nuova, con il solo filtro Picking.
 - Lato calcolato dalla campata con la stessa regola della macro: `(campata \ 10)` pari → **DX**, dispari → **SX**.
 - Ordinamento Scaffale → Lato → Campata → Piano, con banner *Scaffale N | Lato X* e cambio pagina a ogni blocco, intestazione ripetuta su ogni pagina.
+- Una riga per ubicazione e articolo: più righe di giacenza dello stesso articolo nella stessa ubicazione escono una volta sola; articoli diversi restano su righe separate.
 - Barcode **Code 39** disegnati come grafica vettoriale: non serve installare il font *Free 3 of 9 Extended* sul PC che stampa.
 
 **Foglio di controllo**
