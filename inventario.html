@@ -191,6 +191,7 @@
 
   /* riquadro report conta */
   .area.on{border-color:var(--accent);background:var(--accent-soft)}
+  .area.vuota:not(.on){opacity:.6}
   .chk{display:flex;align-items:center;gap:8px;cursor:pointer}
   .txt{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel);
     color:var(--ink);min-width:0;width:260px;max-width:100%}
@@ -324,7 +325,15 @@
       </label>
       <button class="primary" id="run" style="margin-left:auto">Genera</button>
     </div>
-    <div class="hint">Il foglio di controllo usa tutte le righe del file, divise per area e poi fra picking e stoccaggio: i filtri qui sopra valgono solo per la lista. Le aree del foglio si scelgono nel riquadro qui sotto.</div>
+    <div style="margin-top:16px;font-weight:600">Aree della lista</div>
+    <div class="areas" id="listaAree"></div>
+    <div class="btns">
+      <button id="listaTutte">Seleziona tutte</button>
+      <button id="listaNessuna">Nessuna</button>
+      <button id="listaDefault">Ripristina</button>
+      <span class="meta" id="listaInfo"></span>
+    </div>
+    <div class="hint">All'apertura sono spuntate solo le aree R seguite da un numero (R01, R02, R03, R04…), cioè le scaffalature; un clic aggiorna subito la lista. Il foglio di controllo usa tutte le righe del file, divise per area e poi fra picking e stoccaggio: i filtri qui sopra valgono solo per la lista. Le aree del foglio si scelgono nel riquadro qui sotto.</div>
   </div>
 
   <div id="areePanel" class="panel hidden">
@@ -391,7 +400,7 @@
 </div>
 
 <footer class="ver noprint">
-  <span><strong>Inventario</strong> <span class="sep">·</span> versione 1.4</span>
+  <span><strong>Inventario</strong> <span class="sep">·</span> versione 1.5</span>
   <span class="sep">·</span>
   <span>aggiornato il 27/11/2026</span>
 </footer>
@@ -509,6 +518,9 @@ let RECORDS = [];   // tutte le righe del file, anche senza scaffale (la lista u
 let FNAME = "";
 let AREE = [];      // aree trovate nel file, in ordine alfabetico
 let SEL = new Set(); // aree scelte per il foglio di controllo
+let SEL_LISTA = new Set();   // aree della lista inventario
+const RE_LISTA = /^R\d/i;    // scaffalature R01, R02, R03, R04…: le sole spuntate all'apertura
+let HA_AREA = true;          // il file ha la colonna Area
 
 /* aree di ingresso (I…) e uscita (U…): a inventario devono essere vuote */
 const RE_IO = /^[IU]/i;   // tutte le aree che iniziano per I o U (I01, U09_B, U22, UCORSIA502…)
@@ -624,6 +636,7 @@ function parse(aoa, sheetName){
     });
   }
   QCOL = {colli: idx.colli >= 0, pezzi: idx.pezzi >= 0};
+  HA_AREA = idx.area >= 0;
 
   if(!RECORDS.length){ msg("Non ho trovato righe di giacenza nel file.", "err"); return; }
 
@@ -634,6 +647,7 @@ function parse(aoa, sheetName){
     + `&nbsp;${FNAME} — foglio “${sheetName}”, intestazione alla riga ${h+1}`;
   $("config").classList.remove("hidden");
   preparaAree();
+  listaDefault();
   build();
   preparaConta();
 }
@@ -720,7 +734,7 @@ $("areeDefault").addEventListener("click", () => { areeDefault(); renderAree(); 
 /* ---------- generazione ---------- */
 $("run").addEventListener("click", build);
 $("again").addEventListener("click", () => {
-  RECORDS = []; AREE = []; SEL = new Set(); SEL_CONTA = new Set(); CONTA_DATI = new Map(); clearMsg();
+  RECORDS = []; AREE = []; SEL = new Set(); SEL_LISTA = new Set(); SEL_CONTA = new Set(); CONTA_DATI = new Map(); clearMsg();
   $("config").classList.add("hidden"); $("out").classList.add("hidden"); $("areePanel").classList.add("hidden");
   $("contaPanel").classList.add("hidden");
   $("docList").classList.add("hidden"); $("docCtrl").classList.add("hidden"); $("docConta").classList.add("hidden");
@@ -739,12 +753,16 @@ function build(){
   const pmin = toInt($("fPmin").value);
   const pmax = toInt($("fPmax").value);
 
-  const list = RECORDS.filter(r => {
+  const base = RECORDS.filter(r => {
     if(r.scaf === "") return false;   // la lista è solo per le ubicazioni a scaffale, come nella macro
     if(mode === "true"  && !r.pick) return false;
     if(mode === "false" &&  r.pick) return false;
     return r.pian >= pmin && r.pian <= pmax;
   });
+  const perAreaLista = new Map();
+  base.forEach(r => perAreaLista.set(r.area, (perAreaLista.get(r.area) || 0) + 1));
+  renderListaAree(perAreaLista);
+  const list = base.filter(r => SEL_LISTA.has(r.area));
 
   // ordinamento della macro: Scaffale, Lato, Campata, Piano
   const key = r => pad(r.scafN,6) + r.lato + pad(r.camp,6) + pad(r.pian,3);
@@ -757,8 +775,35 @@ function build(){
   $("cBloc").textContent  = String(document.querySelectorAll("#blocks .block").length);
   $("out").classList.remove("hidden");
   mostraLista();
-  if(!list.length) msg("Nessuna riga soddisfa i filtri impostati.", "warn");
+  const vecchio = $("msgVuota");   // un solo avviso, anche se la lista si rigenera a ogni clic
+  if(vecchio) vecchio.remove();
+  if(!list.length){ msg("Nessuna riga soddisfa i filtri impostati.", "warn"); $("messages").lastChild.id = "msgVuota"; }
 }
+
+/* ---------- aree della lista inventario ---------- */
+/* senza colonna Area tutte le righe stanno in SENZA AREA, che resta spuntata: la lista è quella di sempre */
+function listaDefault(){
+  SEL_LISTA = new Set(AREE.filter(a => !HA_AREA || RE_LISTA.test(a.code)).map(a => a.code));
+}
+function renderListaAree(cnt){
+  $("listaAree").innerHTML = AREE.map((a, i) => {
+    const on = SEL_LISTA.has(a.code), n = cnt.get(a.code) || 0;
+    return `<label class="area${on ? " on" : ""}${n ? "" : " vuota"}">`
+         + `<input type="checkbox" data-i="${i}"${on ? " checked" : ""}>`
+         + `<span><span class="code">${esc(a.code)}</span>`
+         + `<span class="sub">${n ? righe(n) + " in lista" : "nessuna riga con questi filtri"}</span></span></label>`;
+  }).join("");
+  $("listaInfo").textContent = `${SEL_LISTA.size} aree su ${AREE.length} nella lista`;
+}
+$("listaAree").addEventListener("change", e => {
+  const a = AREE[Number(e.target.dataset.i)];
+  if(!a) return;
+  if(e.target.checked) SEL_LISTA.add(a.code); else SEL_LISTA.delete(a.code);
+  build();
+});
+$("listaTutte").addEventListener("click",   () => { SEL_LISTA = new Set(AREE.map(a => a.code)); build(); });
+$("listaNessuna").addEventListener("click", () => { SEL_LISTA = new Set(); build(); });
+$("listaDefault").addEventListener("click", () => { listaDefault(); build(); });
 
 /* --- lista inventario: un blocco per Scaffale + Lato, uno per pagina --- */
 function renderList(list){

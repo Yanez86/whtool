@@ -43,7 +43,8 @@ nessun package manager: si modificano i file HTML e si caricano sul repository.
 Vengono da macro VBA e script Python già in uso: il comportamento deve restare identico salvo richiesta esplicita.
 
 - **Lato dalla campata:** `(campata / 10)` intero, pari → `DX`, dispari → `SX`.
-- **Lista inventario:** filtro Picking vero e piano 010–019; ordinamento Scaffale → Lato → Campata → Piano
+- **Lista inventario:** filtro Picking vero e piano 010–019; aree scelte a video, all'apertura solo quelle R seguite da
+  un numero (`/^R\d/i`: R01…R04; non RESO, RIS, ROTTURE), tutte se il file non ha la colonna Area; ordinamento Scaffale → Lato → Campata → Piano
   con chiave `%06d{lato}%06d%03d`; un banner e un cambio pagina a ogni cambio di Scaffale+Lato.
 - **Foglio di controllo:** usa tutte le righe del file, non i filtri della lista; diviso per `Area`, e dentro ogni area
   picking e stoccaggio separati; casella nera dove quel lato non esiste. Le righe senza scaffale o campata non si

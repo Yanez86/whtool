@@ -13,7 +13,11 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
 - 1.1 — grafica unificata, barra di navigazione, tema scuro.
 - 1.0 — versione iniziale (sviluppata a parte): confronto rotture / found con delta, totali ed export Excel.
 
-## Inventario — 1.4 (27/11/2026)
+## Inventario — 1.5 (27/11/2026)
+- 1.5 — nei filtri della lista inventario si scelgono anche le **aree**: all'apertura sono spuntate solo quelle R
+  seguite da un numero (R01, R02, R03, R04…), cioè le scaffalature. Ogni area mostra quante righe porterebbe nella lista
+  con i filtri Picking e Piano attuali; un clic aggiorna subito la lista. Con tutte le aree spuntate la lista è quella
+  di prima. Senza colonna Area nel file non cambia nulla. L'avviso "nessuna riga" non si ripete più a ogni clic.
 - 1.4 — il riquadro *Risultato*, con i pulsanti di stampa, sta subito sotto l'area di caricamento e gli eventuali
   messaggi; sotto vengono i filtri della lista, le aree del foglio di controllo e il report conta.
   La lista inventario non compare più a video (si stampa come prima); la casella *Mostra la lista inventario*,
@@ -81,7 +85,8 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
   Tabelle modificabili stato contabile → magazzino (DISPONIBILE → 01, SHORT → AS, il resto → NV) e
   U.M. → colli o pezzi (CT, CF, CS, PZ, PC a colli; BT, FS, BO, PL a pezzi).
 
-## Home — 1.11 (27/11/2026)
+## Home — 1.12 (27/11/2026)
+- 1.12 — scheda aggiornata per Inventario 1.5.
 - 1.11 — scheda aggiornata per Inventario 1.4.
 - 1.10 — scheda aggiornata per Inventario 1.3.
 - 1.9 — scheda aggiornata per Inventario 1.2.
