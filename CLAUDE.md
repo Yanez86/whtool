@@ -47,9 +47,9 @@ Vengono da macro VBA e script Python già in uso: il comportamento deve restare 
   con chiave `%06d{lato}%06d%03d`; un banner e un cambio pagina a ogni cambio di Scaffale+Lato.
 - **Foglio di controllo:** usa tutte le righe del file, non i filtri della lista; diviso per `Area`, e dentro ogni area
   picking e stoccaggio separati; casella nera dove quel lato non esiste. Le righe senza scaffale o campata non si
-  perdono: vanno in *Altre aree*, una riga per area e zona. Aree di ingresso/uscita = `I` o `U` seguite da un numero
-  (`/^[IU]\d/i`): escluse in partenza con avviso a video; quelle che iniziano per I/U senza numero (es. `UCORSIA502`)
-  restano dentro con avviso, perché un'area persa nel controllo è peggio di una riga in più.
+  perdono: vanno in *Altre aree*, una riga per area e zona. Aree di ingresso/uscita = **tutte** quelle che iniziano
+  per `I` o `U` (`/^[IU]/i`, comprese `UCORSIA502` e simili, confermato dall'utente): escluse in partenza, con avviso
+  a video che le elenca se hanno righe; si possono rimettere dal riquadro Aree.
 - **Borderò:** solo quelli del magazzino di partenza (default 3980 / SETTALA) aprono un pacchetto; quelli di
   altri magazzini sono allegati. Il magazzino si legge **solo da ciò che sta sopra la riga "Viaggio:"**,
   altrimenti si prende per errore il "Mag. Dest.". Ogni PDF di input fa storia a sé, salvo l'opzione di unione.

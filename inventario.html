@@ -267,7 +267,7 @@
       <button id="areeNessuna">Nessuna</button>
       <button id="areeDefault">Ripristina</button>
     </div>
-    <div class="hint">Le aree di ingresso e uscita (I o U seguite da un numero: I01, U09_B, U22…) partono escluse, perché a inventario devono essere vuote; tutte le altre entrano. Un clic toglie o rimette un'area. A ogni file caricato si riparte da qui.</div>
+    <div class="hint">Le aree di ingresso e uscita (tutte quelle che iniziano per I o U: I01, U09_B, UCORSIA502…) partono escluse, perché a inventario devono essere vuote; tutte le altre entrano. Un clic toglie o rimette un'area. A ogni file caricato si riparte da qui.</div>
   </div>
 
   <div id="out" class="panel hidden">
@@ -419,10 +419,8 @@ let FNAME = "";
 let AREE = [];      // aree trovate nel file, in ordine alfabetico
 let SEL = new Set(); // aree scelte per il foglio di controllo
 
-/* aree di ingresso (I01…) e uscita (U09_B, U22…): a inventario devono essere vuote */
-const RE_IO = /^[IU]\d/i;
-/* iniziano per I o U ma senza numero dopo (es. UCORSIA502): restano dentro, con avviso */
-const RE_IO_DUBBIO = /^[IU]/i;
+/* aree di ingresso (I…) e uscita (U…): a inventario devono essere vuote */
+const RE_IO = /^[IU]/i;   // tutte le aree che iniziano per I o U (I01, U09_B, U22, UCORSIA502…)
 const SENZA_AREA = "SENZA AREA";
 
 /* ---------- lettura file ---------- */
@@ -571,7 +569,7 @@ function preparaAree(){
     const cosa = [corr.size ? conta(corr.size, "corridoio", "corridoi") : "",
                   ubic.size ? conta(ubic.size, "ubicazione", "ubicazioni") : ""].filter(Boolean).join(" + ");
     const io = RE_IO.test(code);
-    return {code, n: rows.length, desc: cosa + " · " + zone, io, dubbio: !io && RE_IO_DUBBIO.test(code)};
+    return {code, n: rows.length, desc: cosa + " · " + zone, io};
   });
   areeDefault();
   renderAree();
@@ -585,21 +583,14 @@ function preparaAree(){
       + `Sono escluse dal foglio di controllo; si possono rimettere dal riquadro Aree.`,
       io.map(a => [a.code, righe(a.n)]));
   }
-  const dub = AREE.filter(a => a.dubbio);
-  if(dub.length)
-    avviso("warn", "Queste aree iniziano per I o U ma non hanno un numero subito dopo: non le considero di ingresso "
-      + "o uscita e sono nel foglio di controllo. Se lo sono, toglile dal riquadro Aree.",
-      dub.map(a => [a.code, righe(a.n)]));
 }
 function areeDefault(){ SEL = new Set(AREE.filter(a => !a.io).map(a => a.code)); }
 
 function renderAree(){
   $("aree").innerHTML = AREE.map((a, i) => {
     const on = SEL.has(a.code);
-    const sub = a.io ? "ingresso / uscita: dovrebbe essere vuota"
-              : a.dubbio ? "inizia per " + a.code[0].toUpperCase() + ": è di ingresso o uscita?"
-              : a.desc;
-    return `<label class="area${on ? "" : " off"}${a.io || a.dubbio ? " io" : ""}">`
+    const sub = a.io ? "ingresso / uscita: dovrebbe essere vuota" : a.desc;
+    return `<label class="area${on ? "" : " off"}${a.io ? " io" : ""}">`
          + `<input type="checkbox" data-i="${i}"${on ? " checked" : ""}>`
          + `<span><span class="code">${esc(a.code)}</span>`
          + `<span class="sub">${esc(sub)} · ${righe(a.n)}</span></span></label>`;

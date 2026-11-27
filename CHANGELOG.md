@@ -19,9 +19,8 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
   COSTOSI, C04, P01, RIS…), che prima non comparivano, stanno in fondo in *Altre aree*, una riga per area e zona
   con il numero di ubicazioni. Prima i corridoi con lo stesso numero di aree diverse finivano mescolati.
   Nuovo riquadro **Aree del foglio di controllo** per scegliere le aree da stampare: quelle di ingresso e uscita
-  (I o U seguite da un numero) partono escluse, con un avviso a video che le elenca tutte con le loro righe; le aree
-  che iniziano per I o U senza numero (es. `UCORSIA502`) restano dentro, con un avviso a parte. In fondo al foglio
-  l'elenco delle aree escluse. La lista inventario non cambia.
+  (tutte le aree che iniziano per I o U, comprese le `UCORSIA…`) partono escluse, con un avviso a video che le elenca
+  tutte con le loro righe. In fondo al foglio l'elenco delle aree escluse. La lista inventario non cambia.
 - 1.0 — sostituisce le macro `GeneraInventario` e `GeneraFoglioControllo`: lista di spunta stampabile con
   barcode Code 39 disegnati, foglio di controllo corridoi, filtri Picking e Piano modificabili.
 
