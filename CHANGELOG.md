@@ -13,7 +13,15 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
 - 1.1 — grafica unificata, barra di navigazione, tema scuro.
 - 1.0 — versione iniziale (sviluppata a parte): confronto rotture / found con delta, totali ed export Excel.
 
-## Inventario — 1.0 (08/09/2026)
+## Inventario — 1.1 (27/11/2026)
+- 1.1 — il foglio di controllo è diviso **per area** (colonna `Area` della giacenza) e, dentro, fra picking e
+  stoccaggio come prima: ogni tabella porta area e zona nel titolo. Le aree senza corridoi e campate (BOMBOLE,
+  COSTOSI, C04, P01, RIS…), che prima non comparivano, stanno in fondo in *Altre aree*, una riga per area e zona
+  con il numero di ubicazioni. Prima i corridoi con lo stesso numero di aree diverse finivano mescolati.
+  Nuovo riquadro **Aree del foglio di controllo** per scegliere le aree da stampare: quelle di ingresso e uscita
+  (I o U seguite da un numero) partono escluse, con un avviso a video che le elenca tutte con le loro righe; le aree
+  che iniziano per I o U senza numero (es. `UCORSIA502`) restano dentro, con un avviso a parte. In fondo al foglio
+  l'elenco delle aree escluse. La lista inventario non cambia.
 - 1.0 — sostituisce le macro `GeneraInventario` e `GeneraFoglioControllo`: lista di spunta stampabile con
   barcode Code 39 disegnati, foglio di controllo corridoi, filtri Picking e Piano modificabili.
 
@@ -61,7 +69,8 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
   Tabelle modificabili stato contabile → magazzino (DISPONIBILE → 01, SHORT → AS, il resto → NV) e
   U.M. → colli o pezzi (CT, CF, CS, PZ, PC a colli; BT, FS, BO, PL a pezzi).
 
-## Home — 1.7 (26/11/2026)
+## Home — 1.8 (27/11/2026)
+- 1.8 — scheda aggiornata per Inventario 1.1.
 - 1.7 — la scheda di Spacchetta borderò passa nella sezione **Obsoleti**, in fondo alla home, chiusa all'apertura
   (si apre con un clic). La voce "Borderò" resta nella barra in alto.
 - 1.6 — scheda e voce di menu per Confronto giacenza cliente; schede aggiornate per Aggregatore giacenze 1.2

@@ -159,6 +159,31 @@
   .doc table.ctrl td.off{background:#000;color:#fff}
   .doc table.ctrl td.spunt{width:110px;background:#fff}
   .doc table.ctrl .sep{background:#c8c8c8;width:16px;border:none;padding:0}
+  .doc table.ctrl td.ub{font-weight:400;white-space:normal}
+  .doc table.ctrl td.ub b{font-weight:700}
+  /* intestazione di area sul foglio di controllo (non nera: il nero vuol dire "lato che non esiste") */
+  .ctrl-h{max-width:620px;margin:22px auto 8px;display:flex;justify-content:space-between;align-items:baseline;
+    gap:10px;border-bottom:3px solid #1f497d;padding-bottom:3px;color:#000;
+    font-family:Calibri,Carlito,Arial,sans-serif}
+  .ctrl-h span{font-size:16px;font-weight:700;letter-spacing:.02em}
+  .ctrl-h small{font-size:11px;color:#555;text-align:right}
+  .ctrl-foot{max-width:620px;margin:14px auto 0;font-size:10px;color:#555;
+    font-family:Calibri,Carlito,Arial,sans-serif}
+  .sec{break-inside:avoid;page-break-inside:avoid}
+
+  /* riquadro aree del foglio di controllo */
+  .areas{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin-top:12px}
+  .area{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:8px;
+    padding:8px 10px;background:var(--bg);cursor:pointer}
+  .area:hover{border-color:var(--accent)}
+  .area input{margin:3px 0 0;flex:none}
+  .area .code{font-weight:600;word-break:break-all}
+  .area .sub{display:block;color:var(--muted);font-size:12px;line-height:1.35}
+  .area.off .code{color:var(--muted);text-decoration:line-through}
+  .area.io{border-color:var(--warn);background:var(--warn-soft)}
+  .area.io .sub{color:var(--warn)}
+  .msg ul.codici{margin:8px 0 0;padding-left:20px;max-height:220px;overflow:auto}
+  .msg ul.codici li{margin:2px 0}
 
   /* ---------- stampa ---------- */
   @media print{
@@ -230,7 +255,19 @@
       </label>
       <button class="primary" id="run" style="margin-left:auto">Genera</button>
     </div>
-    <div class="hint">Il foglio di controllo usa tutte le righe del file, divise fra picking e stoccaggio, come nella macro originale: i filtri qui sopra valgono solo per la lista.</div>
+    <div class="hint">Il foglio di controllo usa tutte le righe del file, divise per area e poi fra picking e stoccaggio: i filtri qui sopra valgono solo per la lista. Le aree del foglio si scelgono nel riquadro qui sotto.</div>
+  </div>
+
+  <div id="areePanel" class="panel hidden">
+    <h2>Aree del foglio di controllo</h2>
+    <div class="meta" id="areeInfo"></div>
+    <div class="areas" id="aree"></div>
+    <div class="btns">
+      <button id="areeTutte">Seleziona tutte</button>
+      <button id="areeNessuna">Nessuna</button>
+      <button id="areeDefault">Ripristina</button>
+    </div>
+    <div class="hint">Le aree di ingresso e uscita (I o U seguite da un numero: I01, U09_B, U22…) partono escluse, perché a inventario devono essere vuote; tutte le altre entrano. Un clic toglie o rimette un'area. A ogni file caricato si riparte da qui.</div>
   </div>
 
   <div id="out" class="panel hidden">
@@ -269,9 +306,9 @@
 </div>
 
 <footer class="ver noprint">
-  <span><strong>Inventario</strong> <span class="sep">·</span> versione 1.0</span>
+  <span><strong>Inventario</strong> <span class="sep">·</span> versione 1.1</span>
   <span class="sep">·</span>
-  <span>aggiornato il 08/09/2026</span>
+  <span>aggiornato il 27/11/2026</span>
 </footer>
 
 <script>
@@ -329,6 +366,28 @@ function msg(text, kind){
   $("messages").appendChild(d);
 }
 function clearMsg(){ $("messages").innerHTML = ""; }
+/* avviso con elenco completo, una voce per riga: voci = [[codice, dettaglio], …] */
+function avviso(kind, text, voci){
+  const d = document.createElement("div");
+  d.className = "msg " + kind;
+  const t = document.createElement("div");
+  t.textContent = text;
+  d.appendChild(t);
+  const ul = document.createElement("ul");
+  ul.className = "codici";
+  voci.forEach(([cod, det]) => {
+    const li = document.createElement("li"), b = document.createElement("strong");
+    b.textContent = cod;
+    li.appendChild(b);
+    li.appendChild(document.createTextNode(" — " + det));
+    ul.appendChild(li);
+  });
+  d.appendChild(ul);
+  $("messages").appendChild(d);
+}
+const fmt = n => n.toLocaleString("it-IT");
+const conta = (n, uno, tanti) => n === 1 ? "1 " + uno : fmt(n) + " " + tanti;
+const righe = n => conta(n, "riga", "righe");
 
 /* Picking come nella macro: booleano, "TRUE"/"VERO", oppure 1/-1 */
 function isPicking(v){
@@ -355,8 +414,16 @@ function oraGen(){
 }
 
 /* ---------- stato ---------- */
-let RECORDS = [];   // tutte le righe utili del file
+let RECORDS = [];   // tutte le righe del file, anche senza scaffale (la lista usa solo quelle con scaffale)
 let FNAME = "";
+let AREE = [];      // aree trovate nel file, in ordine alfabetico
+let SEL = new Set(); // aree scelte per il foglio di controllo
+
+/* aree di ingresso (I01…) e uscita (U09_B, U22…): a inventario devono essere vuote */
+const RE_IO = /^[IU]\d/i;
+/* iniziano per I o U ma senza numero dopo (es. UCORSIA502): restano dentro, con avviso */
+const RE_IO_DUBBIO = /^[IU]/i;
+const SENZA_AREA = "SENZA AREA";
 
 /* ---------- lettura file ---------- */
 $("drop").addEventListener("click", () => $("file").click());
@@ -376,8 +443,10 @@ const WANT = {
   ubic: ["ubicazione corrente"],
   scaf: ["scaffale"],
   camp: ["campata"],
-  pian: ["piano"]
+  pian: ["piano"],
+  area: ["area"]
 };
+const OPZIONALI = ["area"];   // senza Area la lista funziona lo stesso; il foglio di controllo no
 
 /* riga di intestazione: quella con più nomi attesi nelle prime 30 righe (default riga 4) */
 function findHeaderRow(aoa){
@@ -421,34 +490,40 @@ function parse(aoa, sheetName){
     }
   });
 
-  const missing = Object.keys(idx).filter(k => idx[k] < 0);
+  const missing = Object.keys(idx).filter(k => idx[k] < 0 && OPZIONALI.indexOf(k) < 0);
   if(missing.length){
     msg("Nel file mancano queste colonne attese alla riga di intestazione: " + missing.join(", ")
         + ". Serve l'estratto Giacenza UdC completo.", "err");
     return;
   }
+  if(idx.area < 0)
+    msg("Nel file manca la colonna Area: il foglio di controllo non può dividere per aree e mette tutte le righe "
+      + "sotto “" + SENZA_AREA + "”. La lista inventario non cambia.", "warn");
 
   RECORDS = [];
   for(let i = h + 1; i < aoa.length; i++){
     const r = aoa[i];
     if(!r) continue;
     const scaf = String(r[idx.scaf] ?? "").trim();
-    if(scaf === "") continue;
+    const ubic = String(r[idx.ubic] ?? "").trim();
+    const area = idx.area < 0 ? "" : String(r[idx.area] ?? "").trim();
+    if(scaf === "" && ubic === "" && area === "") continue;   // riga vuota
     const camp = toInt(r[idx.camp]);
     RECORDS.push({
+      area: area || SENZA_AREA,
       scaf: scaf,
       scafN: toInt(scaf),
       camp: camp,
       pian: toInt(r[idx.pian]),
       lato: latoDaCampata(camp),
-      ubic: String(r[idx.ubic] ?? "").trim(),
+      ubic: ubic,
       art:  String(r[idx.art]  ?? "").trim(),
       desc: String(r[idx.desc] ?? "").trim(),
       pick: isPicking(r[idx.pick])
     });
   }
 
-  if(!RECORDS.length){ msg("Non ho trovato righe con uno scaffale valido.", "err"); return; }
+  if(!RECORDS.length){ msg("Non ho trovato righe di giacenza nel file.", "err"); return; }
 
   const nPick = RECORDS.filter(r => r.pick).length;
   $("fileinfo").innerHTML =
@@ -456,14 +531,101 @@ function parse(aoa, sheetName){
     + `<span class="pill">${nPick.toLocaleString("it-IT")} in picking</span> `
     + `&nbsp;${FNAME} — foglio “${sheetName}”, intestazione alla riga ${h+1}`;
   $("config").classList.remove("hidden");
+  preparaAree();
   build();
 }
+
+/* ---------- aree del foglio di controllo ---------- */
+/* raggruppa le righe di un'area per zona: corridoi (scaffale + campata, con i lati)
+   e ubicazioni senza campata (aree a terra, celle, BOMBOLE, COSTOSI…) */
+function raggruppaArea(rows){
+  const z = {true: {corr: new Map(), ubic: new Map()}, false: {corr: new Map(), ubic: new Map()}};
+  rows.forEach(r => {
+    const g = z[r.pick];
+    if(r.scaf !== "" && r.camp !== 0){
+      let e = g.corr.get(r.scaf);
+      if(!e){ e = {scaf:r.scaf, n:r.scafN, sx:false, dx:false}; g.corr.set(r.scaf, e); }
+      if(r.lato === "SX") e.sx = true; else e.dx = true;
+    }else{
+      const u = r.ubic || r.area;
+      g.ubic.set(u, (g.ubic.get(u) || 0) + 1);
+    }
+  });
+  return z;
+}
+const perArea = () => {
+  const m = new Map();
+  RECORDS.forEach(r => { if(!m.has(r.area)) m.set(r.area, []); m.get(r.area).push(r); });
+  return m;
+};
+const cmpTesto = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+
+function preparaAree(){
+  const m = perArea();
+  AREE = [...m.keys()].sort(cmpTesto).map(code => {
+    const rows = m.get(code), z = raggruppaArea(rows);
+    const corr = new Set(), ubic = new Set();
+    [true, false].forEach(p => { z[p].corr.forEach((v, k) => corr.add(k)); z[p].ubic.forEach((v, k) => ubic.add(k)); });
+    const zone = [true, false].filter(p => z[p].corr.size || z[p].ubic.size)
+                              .map(p => p ? "picking" : "stoccaggio").join(" e ");
+    const cosa = [corr.size ? conta(corr.size, "corridoio", "corridoi") : "",
+                  ubic.size ? conta(ubic.size, "ubicazione", "ubicazioni") : ""].filter(Boolean).join(" + ");
+    const io = RE_IO.test(code);
+    return {code, n: rows.length, desc: cosa + " · " + zone, io, dubbio: !io && RE_IO_DUBBIO.test(code)};
+  });
+  areeDefault();
+  renderAree();
+  $("areePanel").classList.remove("hidden");
+
+  // avviso: righe in aree di ingresso e uscita, che a inventario dovrebbero essere vuote
+  const io = AREE.filter(a => a.io);
+  if(io.length){
+    const tot = io.reduce((s, a) => s + a.n, 0);
+    avviso("warn", `Ci sono ${righe(tot)} in aree di ingresso o uscita, che a inventario dovrebbero essere vuote. `
+      + `Sono escluse dal foglio di controllo; si possono rimettere dal riquadro Aree.`,
+      io.map(a => [a.code, righe(a.n)]));
+  }
+  const dub = AREE.filter(a => a.dubbio);
+  if(dub.length)
+    avviso("warn", "Queste aree iniziano per I o U ma non hanno un numero subito dopo: non le considero di ingresso "
+      + "o uscita e sono nel foglio di controllo. Se lo sono, toglile dal riquadro Aree.",
+      dub.map(a => [a.code, righe(a.n)]));
+}
+function areeDefault(){ SEL = new Set(AREE.filter(a => !a.io).map(a => a.code)); }
+
+function renderAree(){
+  $("aree").innerHTML = AREE.map((a, i) => {
+    const on = SEL.has(a.code);
+    const sub = a.io ? "ingresso / uscita: dovrebbe essere vuota"
+              : a.dubbio ? "inizia per " + a.code[0].toUpperCase() + ": è di ingresso o uscita?"
+              : a.desc;
+    return `<label class="area${on ? "" : " off"}${a.io || a.dubbio ? " io" : ""}">`
+         + `<input type="checkbox" data-i="${i}"${on ? " checked" : ""}>`
+         + `<span><span class="code">${esc(a.code)}</span>`
+         + `<span class="sub">${esc(sub)} · ${righe(a.n)}</span></span></label>`;
+  }).join("");
+  $("areeInfo").textContent = `${SEL.size} aree su ${AREE.length} nel foglio di controllo`;
+}
+function aggiornaCtrl(){
+  const ctrl = renderCtrl();
+  $("cPick").textContent  = String(ctrl.nP);
+  $("cStock").textContent = String(ctrl.nS);
+}
+$("aree").addEventListener("change", e => {
+  const a = AREE[Number(e.target.dataset.i)];
+  if(!a) return;
+  if(e.target.checked) SEL.add(a.code); else SEL.delete(a.code);
+  renderAree(); aggiornaCtrl();
+});
+$("areeTutte").addEventListener("click",   () => { SEL = new Set(AREE.map(a => a.code)); renderAree(); aggiornaCtrl(); });
+$("areeNessuna").addEventListener("click", () => { SEL = new Set(); renderAree(); aggiornaCtrl(); });
+$("areeDefault").addEventListener("click", () => { areeDefault(); renderAree(); aggiornaCtrl(); });
 
 /* ---------- generazione ---------- */
 $("run").addEventListener("click", build);
 $("again").addEventListener("click", () => {
-  RECORDS = []; clearMsg();
-  $("config").classList.add("hidden"); $("out").classList.add("hidden");
+  RECORDS = []; AREE = []; SEL = new Set(); clearMsg();
+  $("config").classList.add("hidden"); $("out").classList.add("hidden"); $("areePanel").classList.add("hidden");
   $("docList").classList.add("hidden"); $("docCtrl").classList.add("hidden");
   $("file").value = ""; window.scrollTo({top:0,behavior:"smooth"});
 });
@@ -478,6 +640,7 @@ function build(){
   const pmax = toInt($("fPmax").value);
 
   const list = RECORDS.filter(r => {
+    if(r.scaf === "") return false;   // la lista è solo per le ubicazioni a scaffale, come nella macro
     if(mode === "true"  && !r.pick) return false;
     if(mode === "false" &&  r.pick) return false;
     return r.pian >= pmin && r.pian <= pmax;
@@ -488,12 +651,10 @@ function build(){
   list.sort((a,b) => key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0);
 
   renderList(list);
-  const ctrl = renderCtrl();
+  aggiornaCtrl();
 
   $("cRighe").textContent = list.length.toLocaleString("it-IT");
   $("cBloc").textContent  = String(document.querySelectorAll("#blocks .block").length);
-  $("cPick").textContent  = String(ctrl.nP);
-  $("cStock").textContent = String(ctrl.nS);
   $("out").classList.remove("hidden");
   $("docList").classList.toggle("hidden", list.length === 0);
   if(!list.length) msg("Nessuna riga soddisfa i filtri impostati.", "warn");
@@ -532,25 +693,42 @@ function renderList(list){
 
 function esc(s){ return String(s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
 
-/* --- foglio di controllo: corridoi picking e stoccaggio, SX a sinistra e DX a destra --- */
+/* --- foglio di controllo: una sezione per area, dentro picking e stoccaggio con SX a sinistra e DX a destra;
+       le ubicazioni senza campata (aree a terra, BOMBOLE, COSTOSI…) in fondo, in "ALTRE AREE" --- */
 function renderCtrl(){
-  const collect = pick => {
-    const m = new Map();
-    RECORDS.forEach(r => {
-      if(r.pick !== pick) return;
-      if(r.camp === 0) return;
-      let e = m.get(r.scaf);
-      if(!e){ e = {scaf:r.scaf, n:r.scafN, sx:false, dx:false}; m.set(r.scaf, e); }
-      if(r.lato === "SX") e.sx = true; else e.dx = true;
+  const m = perArea();
+  const codes = [...m.keys()].filter(c => SEL.has(c)).sort(cmpTesto);
+  let html = "", nP = 0, nS = 0;
+  const altre = [];
+  codes.forEach(code => {
+    const rows = m.get(code), z = raggruppaArea(rows), tabs = [], zone = [];
+    [[true, "PICKING"], [false, "STOCCAGGIO"]].forEach(([p, nome]) => {
+      const corr = [...z[p].corr.values()].sort((a, b) => a.n - b.n || cmpTesto(a.scaf, b.scaf));
+      if(corr.length){
+        tabs.push(tabellaCtrl(code + " · ZONA " + nome, corr));
+        zone.push(nome.toLowerCase());
+        if(p) nP += corr.length; else nS += corr.length;
+      }
+      if(z[p].ubic.size) altre.push({code, zona: p ? "Picking" : "Stoccaggio", ubic: [...z[p].ubic.keys()].sort(cmpTesto)});
     });
-    return [...m.values()].sort((a,b) => a.n - b.n);
-  };
-  const P = collect(true), S = collect(false);
+    if(tabs.length)
+      html += `<div class="sec">${intestArea("AREA " + code, zone.join(" e ") + " · " + righe(rows.length))}${tabs[0]}</div>`
+            + tabs.slice(1).join("");
+  });
+  if(altre.length)
+    html += `<div class="sec">${intestArea("ALTRE AREE", "ubicazioni senza corridoio e campata")}${tabellaAltre(altre)}</div>`;
+  if(!codes.length)
+    html += `<div class="ctrl-foot">Nessuna area scelta: selezionale nel riquadro Aree del foglio di controllo.</div>`;
+  const escluse = AREE.filter(a => !SEL.has(a.code)).map(a => a.code);
+  if(escluse.length && codes.length)
+    html += `<div class="ctrl-foot">Aree escluse da questo foglio: ${escluse.map(esc).join(", ")}.</div>`;
 
   $("ctrlDate").textContent = oggi();
-  $("ctrlTables").innerHTML = tabellaCtrl("ZONA PICKING", P) + tabellaCtrl("ZONA STOCCAGGIO", S);
-  return {nP:P.length, nS:S.length};
+  $("ctrlTables").innerHTML = html;
+  return {nP, nS};
 }
+
+const intestArea = (titolo, info) => `<div class="ctrl-h"><span>${esc(titolo)}</span><small>${esc(info)}</small></div>`;
 
 function tabellaCtrl(titolo, arr){
   if(!arr.length) return "";
@@ -559,10 +737,27 @@ function tabellaCtrl(titolo, arr){
       `<tr>${cell(e.scaf, e.sx)}${cell("SX", e.sx)}<td class="spunt"></td>`
     + `<td class="sep"></td>`
     + `${cell(e.scaf, e.dx)}${cell("DX", e.dx)}<td class="spunt"></td></tr>`).join("");
-  return `<table class="ctrl"><thead>`
+  return `<table class="ctrl sec"><thead>`
        + `<tr><th class="title" colspan="7">${esc(titolo)}</th></tr>`
        + `<tr><th>Corridoio</th><th>Lato</th><th>Spuntatore</th><th class="sep"></th>`
        + `<th>Corridoio</th><th>Lato</th><th>Spuntatore</th></tr>`
+       + `</thead><tbody>${rows}</tbody></table>`;
+}
+
+/* aree senza corridoi: una riga per area e zona, con il numero di ubicazioni
+   (fino a 4 elencate, oltre la prima e l'ultima; il prefisso "AREA." si toglie) */
+function tabellaAltre(items){
+  const riassunto = (code, ub) => {
+    if(ub.length === 1 && ub[0] === code) return "1";
+    const pre = code.toUpperCase() + ".";
+    const s = ub.map(u => u.toUpperCase().startsWith(pre) ? u.slice(pre.length) : u);
+    return `<b>${ub.length}</b> &nbsp;·&nbsp; `
+         + esc(s.length <= 4 ? s.join(", ") : "da " + s[0] + " a " + s[s.length - 1]);
+  };
+  const rows = items.map(it => `<tr><td>${esc(it.code)}</td><td>${it.zona}</td>`
+    + `<td class="ub">${riassunto(it.code, it.ubic)}</td><td class="spunt"></td></tr>`).join("");
+  return `<table class="ctrl sec"><thead>`
+       + `<tr><th>Area</th><th>Zona</th><th>Ubicazioni</th><th>Spuntatore</th></tr>`
        + `</thead><tbody>${rows}</tbody></table>`;
 }
 

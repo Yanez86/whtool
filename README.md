@@ -43,7 +43,9 @@ Sostituisce le macro `GeneraInventario` e `GeneraFoglioControllo` del file `Inve
 
 **Foglio di controllo**
 
-- Corridoi distinti divisi fra zona picking e zona stoccaggio, SX a sinistra e DX a destra, con colonna *Spuntatore* da riempire a mano e casella nera dove il lato non esiste.
+- Diviso per **area** (colonna *Area* della giacenza) e, dentro ogni area, fra zona picking e zona stoccaggio: corridoi con SX a sinistra e DX a destra, colonna *Spuntatore* da riempire a mano e casella nera dove il lato non esiste.
+- Le aree senza corridoi e campate (BOMBOLE, COSTOSI, C04, P01, RIS…) stanno in fondo, in *Altre aree*: una riga per area e zona, con il numero di ubicazioni.
+- Riquadro **Aree del foglio di controllo** per scegliere quali aree stampare. Le aree di ingresso e uscita (I o U seguite da un numero: I01, U09_B, U22…) partono escluse, perché a inventario devono essere vuote; se nel file hanno delle righe compare un avviso con l'elenco. In fondo al foglio, l'elenco delle aree escluse.
 - Campo *Nome inventario* compilabile prima di stampare; usa tutte le righe del file, senza i filtri della lista (come la macro).
 
 La stampa esce in A4 verticale. Per il PDF: *Stampa → Salva come PDF*, lasciando attiva la stampa degli sfondi.
