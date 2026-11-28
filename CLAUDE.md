@@ -83,7 +83,7 @@ Vengono da macro VBA e script Python già in uso: il comportamento deve restare 
   - INVENTARIO, formato reale ("tabulato conta inventario", dal 28/11/2026): `.xls` con `s_codart`, `s_desart`,
     `art_um`, `s_qtaxc`, `conta ` (con lo spazio). Niente giacenza del cliente: si compila `conta` = nostra quantità
     nel magazzino del tabulato (default 01), senza differenze. Si restituisce in `.xlsx` (unico modo per colorare
-    le righe) ricopiando foglio, intestazioni esatte, larghezze lette con `cellStyles:true` e grafica Arial 10 con bordi.
+    le righe; scelta confermata dall'utente il 28/11/2026, non tornare all'`.xls`) ricopiando foglio, intestazioni esatte, larghezze lette con `cellStyles:true` e grafica Arial 10 con bordi.
   - INVENTARIO, formato precedente (`giacenza`, `conta click`, `diff`): ancora accettato; se è `.xlsx` si restituisce
     **il file del cliente** modificato con JSZip, con confronto e formula `diff`.
   - In entrambi i formati, in fondo, in rosso chiaro `FFFFC7CE`, solo gli articoli che abbiamo noi e lui no,
