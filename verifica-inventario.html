@@ -108,19 +108,27 @@
   .tabs button.on { color: var(--accent); border-bottom-color: var(--accent); }
   #stampa { display: none; }
   @media print {
-    @page { size: A4; margin: 12mm; }
+    /* margine di pagina a zero: così il browser non stampa indirizzo, data e titolo della pagina.
+       I margini stanno nel contenuto: ai lati un'imbottitura, sopra e sotto l'intestazione e il piè
+       vuoti di una tabella contenitore, che il browser ripete su ogni pagina */
+    @page { size: A4; margin: 0; }
     html, body { background: #ffffff !important; color: #000000 !important; }
     .topbar, .wrap > :not(#stampa), .ver { display: none !important; }
     .wrap { max-width: none; padding: 0; margin: 0; }
-    #stampa { display: block; color: #000000; background: #ffffff; font: 11pt/1.35 Arial, Helvetica, sans-serif; }
+    #stampa { display: block; color: #000000; background: #ffffff; font: 11pt/1.35 Arial, Helvetica, sans-serif; padding: 0 12mm; }
+    #stampa table.pagina { width: 100%; border-collapse: collapse; }
+    #stampa table.pagina > thead { display: table-header-group; }
+    #stampa table.pagina > tfoot { display: table-footer-group; }
+    #stampa table.pagina > * > tr > td { padding: 0; border: 0; background: #ffffff; white-space: normal; }
+    #stampa table.pagina td.spazio { height: 12mm; }
     #stampa h1 { font-size: 16pt; margin: 0 0 4px; color: #000000; }
     #stampa .inv { font-size: 14pt; margin: 0 0 4px; color: #000000; }
     #stampa .meta { font-size: 10pt; margin: 0 0 10px; color: #000000; }
-    #stampa table { width: 100%; border-collapse: collapse; font-size: 11pt; }
-    #stampa thead { display: table-header-group; }
-    #stampa th, #stampa td { border: 1px solid #000000; padding: 5px 7px; color: #000000; background: #ffffff; white-space: normal; vertical-align: top; }
-    #stampa th { background: #e6e6e6; position: static; }
-    #stampa tr { break-inside: avoid; }
+    #stampa table.righe { width: 100%; border-collapse: collapse; font-size: 11pt; }
+    #stampa table.righe thead { display: table-header-group; }
+    #stampa table.righe th, #stampa table.righe td { border: 1px solid #000000; padding: 5px 7px; color: #000000; background: #ffffff; white-space: normal; vertical-align: top; }
+    #stampa table.righe th { background: #e6e6e6; position: static; }
+    #stampa table.righe tr { break-inside: avoid; }
     #stampa td.num, #stampa th.num { text-align: right; font-weight: bold; }
     #stampa .sis { font-size: 9pt; }
     #stampa .note { width: 28%; }
@@ -232,9 +240,9 @@
 </div>
 
 <footer class="ver noprint">
-  <span><strong>Verifica inventario</strong> <span class="sep">·</span> versione 1.1</span>
+  <span><strong>Verifica inventario</strong> <span class="sep">·</span> versione 1.2</span>
   <span class="sep">·</span>
-  <span>aggiornato il 26/11/2026</span>
+  <span>aggiornato il 28/11/2026</span>
 </footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -559,11 +567,14 @@ function stampaScheda() {
   if (!ko.length) { mostra("info", "Nessuna ubicazione difettosa: non c'è nulla da stampare."); return; }
   mostra("", "");
   var sg = function (n) { return n === 0 ? "0" : (n > 0 ? "+" : "\u2212") + fmt(Math.abs(n)); };
-  var h = "<h1>Scheda Riconta</h1>" +
+  /* tabella contenitore: intestazione e piè vuoti ripetuti su ogni pagina fanno da margine sopra e sotto */
+  var h = '<table class="pagina"><thead><tr><td class="spazio"></td></tr></thead>' +
+    '<tfoot><tr><td class="spazio"></td></tr></tfoot><tbody><tr><td>' +
+    "<h1>Scheda Riconta</h1>" +
     '<p class="inv">Inventario: <b>' + esc(STATO.nomeInv || "\u2014") + "</b></p>" +
     '<p class="meta">Verifica ' + (STATO.modo === "stock" ? "Stock" : "Picking") + " \u00b7 File: " + esc(STATO.fileName) + " \u00b7 " + new Date().toLocaleDateString("it-IT") +
     " \u00b7 " + ko.length + (ko.length === 1 ? " ubicazione da controllare su " : " ubicazioni da controllare su ") + k.contate + " contate</p>" +
-    "<table><thead><tr><th>Ubicazione</th><th>Articolo</th><th>Difetto</th><th class=\"num\">\u0394 colli</th>" +
+    "<table class=\"righe\"><thead><tr><th>Ubicazione</th><th>Articolo</th><th>Difetto</th><th class=\"num\">\u0394 colli</th>" +
     (pz ? '<th class="num">\u0394 pezzi</th>' : "") + '<th class="note">Note / ricontrollo</th></tr></thead><tbody>';
   ko.forEach(function (x) {
     var ub = esc(x.ubF) + (x.difetti.indexOf("ubic") >= 0 ? '<div class="sis">a sistema: ' + esc(x.ubL) + "</div>" : "");
@@ -571,7 +582,7 @@ function stampaScheda() {
     h += "<tr><td>" + ub + "</td><td>" + ar + "</td><td>" + x.difetti.map(function (d) { return LABEL_DIF[d]; }).join(", ") + '</td><td class="num">' + sg(x.dColli) + "</td>" +
          (pz ? '<td class="num">' + sg(x.dPezzi) + "</td>" : "") + "<td></td></tr>";
   });
-  $("stampa").innerHTML = h + "</tbody></table>";
+  $("stampa").innerHTML = h + "</tbody></table></td></tr></tbody></table>";
   window.print();
 }
 

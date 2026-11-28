@@ -50,7 +50,10 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
 - 1.0 — sostituisce le macro `GeneraInventario` e `GeneraFoglioControllo`: lista di spunta stampabile con
   barcode Code 39 disegnati, foglio di controllo corridoi, filtri Picking e Piano modificabili.
 
-## Verifica inventario — 1.1 (26/11/2026)
+## Verifica inventario — 1.2 (28/11/2026)
+- 1.2 — la Scheda Riconta si stampa senza l'indirizzo della pagina in basso a sinistra (e senza data, titolo e
+  numero di pagina che il browser aggiungeva): margine di pagina a zero, con i 12 mm di margine spostati nel
+  contenuto e ripetuti su ogni pagina.
 - 1.1 — il badge *Pari* e i messaggi informativi non avevano lo sfondo colorato: usavano due colori
   (`--ok-bg`, `--warn-bg`) mai definiti. Ora sono alias dei colori comuni.
 - 1.0 — versione iniziale: confronto fisico/logico dell'export di inventario, con scelta Stock o Picking.
@@ -99,7 +102,8 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
   Tabelle modificabili stato contabile → magazzino (DISPONIBILE → 01, SHORT → AS, il resto → NV) e
   U.M. → colli o pezzi (CT, CF, CS, PZ, PC a colli; BT, FS, BO, PL a pezzi).
 
-## Home — 1.15 (28/11/2026)
+## Home — 1.16 (28/11/2026)
+- 1.16 — scheda aggiornata per Verifica inventario 1.2.
 - 1.15 — scheda aggiornata per Confronto giacenza cliente 1.3.
 - 1.14 — scheda aggiornata per Inventario 1.7.
 - 1.13 — scheda aggiornata per Inventario 1.6.

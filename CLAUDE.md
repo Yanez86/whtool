@@ -109,6 +109,10 @@ Vengono da macro VBA e script Python già in uso: il comportamento deve restare 
   pagina. Effetto collaterale: dentro `table.pagina` un selettore discendente come `tbody tr` prende anche le righe di
   `thead` delle tabelle interne; nei test usare `:scope > tbody > tr`.
 - **localStorage e simili non servono**: nessuno stato va salvato tra una sessione e l'altra.
+- **Stampe senza indirizzo, data e titolo del browser:** il browser li scrive nel margine di pagina, quindi
+  `@page { margin: 0 }` e margini dentro il contenuto. Su una pagina sola basta un'imbottitura (Etichette); su più
+  pagine si mette tutto in una tabella contenitore con `thead`/`tfoot` vuoti alti 12 mm, che il browser ripete su
+  ogni pagina, e un'imbottitura laterale (Scheda Riconta). Si perde anche il numero di pagina del browser.
 - **SheetJS 0.18.5 (gratuito) non scrive stili**: riscrivendo un file perde bordi, colori e larghezze, e non sa
   colorare le righe. Per restituire il file del cliente si modifica il suo XML con JSZip (celle, righe nuove,
   stile clonato con riempimento rosso, `dimension`, `autoFilter`, nome `_xlnm._FilterDatabase`); si toglie
