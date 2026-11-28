@@ -76,7 +76,12 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
   modificabile (RITIRI COCA, ROTTURE 262, ROTTURE, BL5, BL3 precaricate). Una riga per articolo con quantità
   sommate; oltre 27 articoli le righe si abbassano per restare in una pagina. Stampa o PDF dal browser.
 
-## Confronto giacenza cliente — 1.2 (26/11/2026)
+## Confronto giacenza cliente — 1.3 (28/11/2026)
+- 1.3 — INVENTARIO legge il tabulato nel formato reale del cliente (*tabulato conta inventario*, `.xls` con
+  `s_codart`, `s_desart`, `art_um`, `s_qtaxc`, `conta`): si compila la colonna `conta`, senza giacenza del cliente
+  né differenze. Il file torna come `.xlsx` con lo stesso foglio, le stesse intestazioni e larghezze e la stessa
+  grafica, più le righe aggiunte in rosso. A video: righe con e senza nostra merce, righe aggiunte; la nota spiega
+  anche gli articoli che abbiamo solo in altri magazzini. Il formato precedente con `giacenza` e `diff` resta valido.
 - 1.2 — gli avvisi che riguardano articoli li elencano **tutti**, uno per riga (prima erano tra parentesi in fondo
   al messaggio e si fermavano a dieci). Per i pezzi per collo diversi ogni riga dice codice, descrizione, U.M. e i
   due valori a confronto; il pulsante *Mostra in tabella* e il filtro *Pezzi per collo diversi* mostrano solo quegli
@@ -94,7 +99,8 @@ Ogni tool ha la propria versione, scritta nel piè di pagina della sua pagina e 
   Tabelle modificabili stato contabile → magazzino (DISPONIBILE → 01, SHORT → AS, il resto → NV) e
   U.M. → colli o pezzi (CT, CF, CS, PZ, PC a colli; BT, FS, BO, PL a pezzi).
 
-## Home — 1.14 (27/11/2026)
+## Home — 1.15 (28/11/2026)
+- 1.15 — scheda aggiornata per Confronto giacenza cliente 1.3.
 - 1.14 — scheda aggiornata per Inventario 1.7.
 - 1.13 — scheda aggiornata per Inventario 1.6.
 - 1.12 — scheda aggiornata per Inventario 1.5.

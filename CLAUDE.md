@@ -80,9 +80,14 @@ Vengono da macro VBA e script Python già in uso: il comportamento deve restare 
     confezionati (es. P5776, 10 pezzi per collo) il cliente li conta a colli.
   - Abbinamento su `Articolo` della giacenza contro `s_codart` / `kart`, ignorando maiuscole e spazi.
     Differenza = cliente − nostra (come la `diff` del tabulato). Righe rosse: cliente 0, noi con merce.
-  - INVENTARIO: si restituisce **il file del cliente**, non uno nuovo. `conta click` = nostra quantità nel magazzino
-    del tabulato (default 01). In fondo, in rosso chiaro `FFFFC7CE`, solo gli articoli che abbiamo noi e lui no,
-    **con merce in quel magazzino**; giacenza cliente 0, `art_um` scelta a video riga per riga (vuota = colli).
+  - INVENTARIO, formato reale ("tabulato conta inventario", dal 28/11/2026): `.xls` con `s_codart`, `s_desart`,
+    `art_um`, `s_qtaxc`, `conta ` (con lo spazio). Niente giacenza del cliente: si compila `conta` = nostra quantità
+    nel magazzino del tabulato (default 01), senza differenze. Si restituisce in `.xlsx` (unico modo per colorare
+    le righe) ricopiando foglio, intestazioni esatte, larghezze lette con `cellStyles:true` e grafica Arial 10 con bordi.
+  - INVENTARIO, formato precedente (`giacenza`, `conta click`, `diff`): ancora accettato; se è `.xlsx` si restituisce
+    **il file del cliente** modificato con JSZip, con confronto e formula `diff`.
+  - In entrambi i formati, in fondo, in rosso chiaro `FFFFC7CE`, solo gli articoli che abbiamo noi e lui no,
+    **con merce nel magazzino del tabulato**; `art_um` scelta a video riga per riga (vuota = colli).
   - BILANCIAMENTO: confronto per articolo **e** magazzino sulla colonna `giac` (non `dispo`: sui file reali
     coincidono 750 righe su 1.112 con `giac`, 578 con `dispo`). Solo le righe con merce da almeno una parte.
 
@@ -129,7 +134,9 @@ con Playwright e Chromium headless su `file:///…`, intercettando i CDN così d
 - **Confronto giacenza cliente:** rifare in pandas i due confronti con le stesse regole e confrontare riga per riga.
   Con i file di prova del 26/11/2026 (tabulato Settala, Giacenza UdC, Bollicine; non sono nel repository):
   INVENTARIO 1.090 righe del tabulato + 119 aggiunte; BILANCIAMENTO 1.157 righe, magazzino 01 750 pari su 1.112,
-  AS 5 su 5, NV 20 su 40. Gli Excel scaricati vanno riaperti (openpyxl: valori, formule, colori, filtro) e
+  AS 5 su 5, NV 20 su 40. Con il tabulato conta del 27/11/2026 e la stessa giacenza: 1.389 righe, 1.064 con nostra
+  merce, 325 a 0 (324 articoli assenti, C17AN solo in AS), 4 aggiunte (H11CC, H12BY, H12BZ, H12CB).
+  Gli Excel scaricati vanno riaperti (openpyxl: valori, formule, colori, filtro) e
   convertiti in PDF con LibreOffice per guardarli.
 - **Stampa:** generare il PDF con `page.pdf()` e guardarlo davvero, convertendolo in immagine.
 - In ogni test raccogliere `pageerror` e gli errori di console: devono essere zero.
